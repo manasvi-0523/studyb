@@ -5,6 +5,12 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/
 export interface CombatDrillRequest {
   materialText: string;
   subjectId: SubjectKey;
+  images?: {
+    inlineData: {
+      data: string;
+      mimeType: string;
+    };
+  }[];
 }
 
 export interface CombatDrillResponse {
@@ -21,6 +27,7 @@ const SYSTEM_PROMPT =
   "where MCQs include id, question, options, correctOptionId, explanation, subjectId, difficulty='hard' " +
   "and flashcards include id, front, back, subjectId.";
 
+
 export async function generateCombatDrills(
   payload: CombatDrillRequest
 ): Promise<CombatDrillResponse> {
@@ -30,20 +37,26 @@ export async function generateCombatDrills(
     throw new Error("Gemini API key is not configured");
   }
 
+  const parts: any[] = [
+    {
+      text:
+        SYSTEM_PROMPT +
+        "\n\nSubject: " +
+        payload.subjectId +
+        "\n\nStudy material:\n" +
+        payload.materialText
+    }
+  ];
+
+  if (payload.images) {
+    parts.push(...payload.images);
+  }
+
   const body = {
     contents: [
       {
         role: "user",
-        parts: [
-          {
-            text:
-              SYSTEM_PROMPT +
-              "\n\nSubject: " +
-              payload.subjectId +
-              "\n\nStudy material:\n" +
-              payload.materialText
-          }
-        ]
+        parts: parts
       }
     ]
   };

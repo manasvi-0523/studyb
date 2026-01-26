@@ -7,6 +7,8 @@ interface Props {
   onGenerated: (payload: { questions: DrillQuestion[]; flashcards: Flashcard[] }) => void;
 }
 
+import { extractTextFromFile, fileToBase64, isImageFile } from "../../lib/fileUtils";
+
 export function StrategistPanel({ onGenerated }: Props) {
   const [subjectId, setSubjectId] = useState<SubjectKey>("biology");
   const [materialText, setMaterialText] = useState("");
@@ -23,11 +25,50 @@ export function StrategistPanel({ onGenerated }: Props) {
     try {
       setIsLoading(true);
       setError(null);
-      // TODO: Handle attached files in backend
-      const result = await generateCombatDrills({ subjectId, materialText });
+
+      let contextToProcess = materialText;
+      let imagesData = undefined;
+
+      if (attachedFile) {
+        try {
+          if (isImageFile(attachedFile)) {
+            const base64 = await fileToBase64(attachedFile);
+            imagesData = [{
+              inlineData: {
+                data: base64,
+                mimeType: attachedFile.type
+              }
+            }];
+            // Provide a context hint for the image
+            if (!contextToProcess) contextToProcess = "See attached image for study material.";
+          } else {
+            // Text or PDF
+            const fileText = await extractTextFromFile(attachedFile);
+            contextToProcess = (contextToProcess + "\n\n" + fileText).trim();
+          }
+        } catch (fileErr: any) {
+          console.error("File processing error:", fileErr);
+          setError(`Failed to read file: ${fileErr.message || "Unknown error"}. Check console for details.`);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      if (!contextToProcess && !imagesData) {
+        setError("No content found in file or text area.");
+        setIsLoading(false);
+        return;
+      }
+
+      const result = await generateCombatDrills({
+        subjectId,
+        materialText: contextToProcess,
+        images: imagesData
+      });
       onGenerated(result);
     } catch (err) {
-      setError("Failed to generate combat drills");
+      console.error(err);
+      setError("Failed to generate combat drills. Please try again.");
     } finally {
       setIsLoading(false);
     }
