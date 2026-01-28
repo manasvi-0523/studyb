@@ -10,6 +10,11 @@ export function RequireAuth() {
     useEffect(() => {
         const supabase = getSupabaseClient();
 
+        if (!supabase) {
+            setLoading(false);
+            return;
+        }
+
         // Check active session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
@@ -27,14 +32,21 @@ export function RequireAuth() {
         return () => subscription.unsubscribe();
     }, []);
 
+    const isConfigured = getSupabaseClient() !== null;
+
     if (loading) {
         return (
-            <div className="h-screen w-full flex items-center justify-center bg-[#050505] text-white">
-                <div className="animate-pulse tracking-widest text-xs uppercase text-gray-500">
+            <div className="h-screen w-full flex flex-col items-center justify-center bg-[#050505] text-white">
+                <div className="animate-pulse tracking-widest text-xs uppercase text-gray-500 mb-4">
                     Verifying Clearance...
                 </div>
             </div>
         );
+    }
+
+    // If not configured, allow access but maybe we could show a warning banner later
+    if (!isConfigured) {
+        return <Outlet />;
     }
 
     if (!session) {
