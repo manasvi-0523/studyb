@@ -61,26 +61,34 @@ export async function generateCombatDrills(
     ]
   };
 
-  const response = await fetch(GEMINI_API_URL + "?key=" + apiKey, {
+  const response = await fetch(GEMINI_API_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey
     },
     body: JSON.stringify(body)
   });
 
   if (!response.ok) {
-    throw new Error("Failed to contact Gemini API");
+    throw new Error(`Failed to contact Gemini API: ${response.status} ${response.statusText}`);
   }
 
   const data = (await response.json()) as any;
 
   const text =
     data?.candidates?.[0]?.content?.parts?.[0]?.text ??
+    // @ts-ignore - response_metadata might be present in some versions/proxy responses
     data?.candidates?.[0]?.content?.parts?.[0]?.response_metadata?.json ??
     "";
 
-  const parsed = JSON.parse(text);
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    console.error("Failed to parse Gemini response:", text);
+    throw new Error("Received malformed response from AI");
+  }
 
   const questions: DrillQuestion[] = parsed.combatDrills;
   const flashcards: Flashcard[] = parsed.flashcards.map((card: any) => ({

@@ -24,8 +24,9 @@ export function LoginPage() {
 
       if (error) throw error;
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'Failed to login');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to login';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -42,8 +43,9 @@ export function LoginPage() {
       });
       if (error) throw error;
       alert('Check your email for the confirmation link!');
-    } catch (err: any) {
-      setError(err.message || 'Failed to sign up');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign up';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export function LoginPage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#1a1a1a_0%,_#000000_100%)]" />
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#2E5BFF] to-transparent opacity-50" />
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="glass-panel p-8 w-full max-w-md relative z-10 border border-white/10"
