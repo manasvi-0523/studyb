@@ -18,7 +18,12 @@ export function fileToBase64(file: File): Promise<string> {
         reader.onload = () => {
             const result = reader.result as string;
             // Remove data url prefix (e.g. "data:image/jpeg;base64,")
-            const base64 = result.split(',')[1];
+            const parts = result.split(',');
+            if (parts.length < 2) {
+                reject(new Error("Invalid file content: could not extract base64 data"));
+                return;
+            }
+            const base64 = parts[1];
             resolve(base64);
         };
         reader.onerror = reject;

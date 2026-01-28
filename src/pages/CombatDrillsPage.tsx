@@ -9,7 +9,7 @@ export function CombatDrillsPage() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
   const selectedQuestion =
-    questions.find((q) => q.id === selectedQuestionId) ?? questions[0];
+    questions.find((q) => q.id === selectedQuestionId) || (questions.length > 0 ? questions[0] : null);
 
   return (
     <div className="space-y-6">

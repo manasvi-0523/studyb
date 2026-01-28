@@ -28,16 +28,38 @@ const SYSTEM_PROMPT =
   "and flashcards include id, front, back, subjectId.";
 
 
+interface GeminiPart {
+  text?: string;
+  inlineData?: {
+    data: string;
+    mimeType: string;
+  };
+}
+
+interface GeminiCandidate {
+  content: {
+    parts: GeminiPart[];
+  };
+}
+
+interface GeminiResponse {
+  candidates?: GeminiCandidate[];
+}
+
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+function validateConfig() {
+  if (!API_KEY) {
+    throw new Error("CRITICAL: VITE_GEMINI_API_KEY is missing from environment variables.");
+  }
+}
+
 export async function generateCombatDrills(
   payload: CombatDrillRequest
 ): Promise<CombatDrillResponse> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  validateConfig();
 
-  if (!apiKey) {
-    throw new Error("Gemini API key is not configured");
-  }
-
-  const parts: any[] = [
+  const parts: GeminiPart[] = [
     {
       text:
         SYSTEM_PROMPT +
@@ -65,7 +87,7 @@ export async function generateCombatDrills(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": apiKey
+      "x-goog-api-key": API_KEY
     },
     body: JSON.stringify(body)
   });
@@ -74,15 +96,16 @@ export async function generateCombatDrills(
     throw new Error(`Failed to contact Gemini API: ${response.status} ${response.statusText}`);
   }
 
-  const data = (await response.json()) as any;
+  const data = (await response.json()) as GeminiResponse;
 
   const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-    // @ts-ignore - response_metadata might be present in some versions/proxy responses
-    data?.candidates?.[0]?.content?.parts?.[0]?.response_metadata?.json ??
-    "";
+    data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
-  let parsed;
+  if (!text) {
+    throw new Error("Gemini API returned an empty response");
+  }
+
+  let parsed: { combatDrills: DrillQuestion[]; flashcards: Flashcard[] };
   try {
     parsed = JSON.parse(text);
   } catch (error) {
@@ -91,13 +114,16 @@ export async function generateCombatDrills(
   }
 
   const questions: DrillQuestion[] = parsed.combatDrills;
-  const flashcards: Flashcard[] = parsed.flashcards.map((card: any) => ({
-    ...card,
+  const flashcards: Flashcard[] = (parsed.flashcards ?? []).map((card: Partial<Flashcard>) => ({
+    id: card.id ?? crypto.randomUUID(),
+    front: card.front ?? "",
+    back: card.back ?? "",
+    subjectId: card.subjectId ?? payload.subjectId,
     interval: 1,
     repetition: 0,
     ef: 2.5,
     dueAt: new Date().toISOString()
-  }));
+  })) as Flashcard[];
 
   return { questions, flashcards };
 }

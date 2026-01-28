@@ -12,15 +12,21 @@ export function DeepWorkTimer({ subjects }: Props) {
     useSessionStore();
   const [seconds, setSeconds] = useState(0);
 
+  const TIMER_INTERVAL_MS = 1000;
+
   useEffect(() => {
-    let timer: number | undefined;
+    let intervalId: number | undefined;
+
     if (isGrinding) {
-      timer = window.setInterval(() => {
+      intervalId = window.setInterval(() => {
         setSeconds((s) => s + 1);
-      }, 1000);
+      }, TIMER_INTERVAL_MS);
     }
+
     return () => {
-      if (timer) window.clearInterval(timer);
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+      }
     };
   }, [isGrinding]);
 
