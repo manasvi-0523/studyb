@@ -114,16 +114,23 @@ export async function generateCombatDrills(
   }
 
   const questions: DrillQuestion[] = parsed.combatDrills;
-  const flashcards: Flashcard[] = (parsed.flashcards ?? []).map((card: Partial<Flashcard>) => ({
-    id: card.id ?? crypto.randomUUID(),
-    front: card.front ?? "",
-    back: card.back ?? "",
-    subjectId: card.subjectId ?? payload.subjectId,
-    interval: 1,
-    repetition: 0,
-    ef: 2.5,
-    dueAt: new Date().toISOString()
-  })) as Flashcard[];
+  const flashcards: Flashcard[] = (parsed.flashcards ?? []).map((card: Partial<Flashcard>, index: number) => {
+    // Audit Item #17: Synchronized Flashcard Due Dates
+    // Fix: Stagger due dates slightly (5 sec jitter per card)
+    const dueAt = new Date();
+    dueAt.setSeconds(dueAt.getSeconds() + (index * 5));
+
+    return {
+      id: card.id ?? crypto.randomUUID(),
+      front: card.front ?? "",
+      back: card.back ?? "",
+      subjectId: card.subjectId ?? payload.subjectId,
+      interval: 1,
+      repetition: 0,
+      ef: 2.5,
+      dueAt: dueAt.toISOString()
+    };
+  }) as Flashcard[];
 
   return { questions, flashcards };
 }

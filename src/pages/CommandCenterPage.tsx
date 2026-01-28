@@ -16,12 +16,9 @@ const SUBJECTS: Subject[] = [
 
 export function CommandCenterPage() {
   const { sessions, powerLevel } = useSessionStore();
-  const [mastery, setMastery] = useState<Record<string, number>>({
-    biology: 42,
-    physics: 37,
-    chemistry: 51,
-    maths: 28
-  });
+  const [mastery, setMastery] = useState<Record<string, number>>(
+    SUBJECTS.reduce((acc, s) => ({ ...acc, [s.id]: 0 }), {})
+  );
 
   const studyMinutesByDay = useMemo(() => {
     const map: Record<string, number> = {};
