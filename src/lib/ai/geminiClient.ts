@@ -1,6 +1,6 @@
 import type { DrillQuestion, Flashcard, SubjectKey } from "../../types";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 export interface CombatDrillRequest {
   materialText: string;
@@ -93,7 +93,15 @@ export async function generateCombatDrills(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to contact Gemini API: ${response.status} ${response.statusText}`);
+    const errBody = await response.text();
+    console.error("Gemini API Error Response:", errBody);
+
+    if (response.status === 429) {
+      throw new Error("API Rate Limit Exceeded: You've sent too many requests in a short time. Please wait a minute and try again.");
+    }
+
+    const keyHint = API_KEY ? `${API_KEY.substring(0, 4)}...` : "MISSING";
+    throw new Error(`Failed to contact Gemini API: ${response.status} ${response.statusText} (Key: ${keyHint}). Check console for details.`);
   }
 
   const data = (await response.json()) as GeminiResponse;

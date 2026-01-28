@@ -9,8 +9,8 @@ export function getSupabaseClient(): SupabaseClient | null {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  if (!url || !anonKey) {
-    console.warn("Supabase environment variables are not configured. Auth will be disabled/mocked.");
+  if (!url || !anonKey || url.includes("your_supabase") || anonKey.includes("your_supabase")) {
+    console.warn("Supabase environment variables are placeholder or missing. Auth will be disabled/mocked.");
     return null;
   }
   cachedClient = createClient(url, anonKey);

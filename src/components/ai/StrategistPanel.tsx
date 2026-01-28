@@ -66,9 +66,10 @@ export function StrategistPanel({ onGenerated }: Props) {
         images: imagesData
       });
       onGenerated(result);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
-      setError("Failed to generate combat drills. Please try again.");
+      const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setError(`Failed to generate: ${message}`);
     } finally {
       setIsLoading(false);
     }
