@@ -13,7 +13,7 @@
     "date-fns": "^4.1.0",
     "firebase": "^12.8.0",
     "framer-motion": "^11.0.0",
-    "groq-rag": "^0.1.4",
+    "groq-rag": "^0.1.5",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "mammoth": "^1.11.0",
