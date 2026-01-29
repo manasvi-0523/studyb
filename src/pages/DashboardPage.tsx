@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { useUserData } from "../hooks/useUserData";
 import { useSessionStore } from "../state/sessionStore";
 import { Modal } from "../components/common/Modal";
 import { EmptyState } from "../components/common/EmptyState";
 import { AssessmentForm } from "../components/forms/AssessmentForm";
+import { useAuth } from "../context/AuthContext";
 import {
     Plus,
     Clock,
@@ -50,9 +51,36 @@ export function DashboardPage() {
         removeAssessment
     } = useUserData();
 
-    const { isGrinding, activeSubject, startGrind, stopGrind, sessions } = useSessionStore();
+    const { isGrinding, activeSubject, startGrind, stopGrind, sessions, syncActiveSession, getElapsedMinutes } = useSessionStore();
+    const { user } = useAuth();
 
     const [showAddModal, setShowAddModal] = useState(false);
+    const [elapsedTime, setElapsedTime] = useState(0);
+
+    // Sync active session from Firebase on mount
+    useEffect(() => {
+        if (user) {
+            syncActiveSession();
+        }
+    }, [user, syncActiveSession]);
+
+    // Live elapsed time timer
+    useEffect(() => {
+        if (!isGrinding) {
+            setElapsedTime(0);
+            return;
+        }
+
+        // Update immediately
+        setElapsedTime(getElapsedMinutes());
+
+        // Update every second
+        const interval = setInterval(() => {
+            setElapsedTime(getElapsedMinutes());
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [isGrinding, getElapsedMinutes]);
     const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedSubject, setSelectedSubject] = useState<SubjectKey | null>(null);
@@ -141,8 +169,12 @@ export function DashboardPage() {
                             <p className="text-sm text-charcoal/60 dark:text-white/60 mb-2">
                                 Studying {SUBJECT_LABELS[activeSubject!]}
                             </p>
-                            <p className="text-2xl font-bold text-charcoal dark:text-white mb-4">
-                                In Progress...
+                            <p className="text-3xl font-bold text-charcoal dark:text-white mb-1 font-mono">
+                                {Math.floor(elapsedTime / 60).toString().padStart(2, "0")}:
+                                {(elapsedTime % 60).toString().padStart(2, "0")}
+                            </p>
+                            <p className="text-xs text-charcoal/40 dark:text-white/40 mb-4">
+                                {elapsedTime < 60 ? "minutes" : "hours : minutes"}
                             </p>
                             <button
                                 onClick={handleStopStudy}

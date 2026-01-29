@@ -22,6 +22,38 @@ const isFirestoreAvailable = () => {
     return isFirebaseConfigured() && db !== null;
 };
 
+// ==================== ACTIVE SESSION (for resume functionality) ====================
+
+export interface ActiveSession {
+    subjectId: SubjectKey;
+    startedAt: string;
+    isActive: boolean;
+}
+
+export async function saveActiveSession(userId: string, session: ActiveSession | null): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const activeSessionRef = doc(db!, "users", userId, "state", "activeSession");
+    if (session) {
+        await setDoc(activeSessionRef, {
+            ...session,
+            updatedAt: serverTimestamp()
+        });
+    } else {
+        await deleteDoc(activeSessionRef);
+    }
+}
+
+export async function getActiveSession(userId: string): Promise<ActiveSession | null> {
+    if (!isFirestoreAvailable()) return null;
+
+    const activeSessionRef = doc(db!, "users", userId, "state", "activeSession");
+    const snapshot = await getDoc(activeSessionRef);
+
+    if (!snapshot.exists()) return null;
+    return snapshot.data() as ActiveSession;
+}
+
 // ==================== STUDY SESSIONS ====================
 
 export async function saveStudySession(userId: string, session: StudySession): Promise<void> {
