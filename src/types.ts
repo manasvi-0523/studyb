@@ -18,6 +18,8 @@ export interface DrillOption {
   text: string;
 }
 
+export type Difficulty = "easy" | "medium" | "hard";
+
 export interface DrillQuestion {
   id: string;
   question: string;
@@ -25,7 +27,7 @@ export interface DrillQuestion {
   correctOptionId: string;
   explanation: string;
   subjectId: SubjectKey;
-  difficulty: "hard";
+  difficulty: Difficulty;
 }
 
 export interface Flashcard {

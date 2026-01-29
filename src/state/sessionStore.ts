@@ -40,9 +40,13 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     const start = new Date(state.currentSessionStart);
     const end = new Date();
+    const MS_PER_MINUTE = 60000;
+    const SCORE_MULTIPLIER = 10;
+    const MAX_SCORE = 100;
+
     const durationMinutes = Math.max(
       1,
-      Math.round((end.getTime() - start.getTime()) / 60000)
+      Math.round((end.getTime() - start.getTime()) / MS_PER_MINUTE)
     );
     const session: StudySession = {
       id: crypto.randomUUID(),
@@ -60,7 +64,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       powerLevel: {
         ...state.powerLevel,
         totalStudyMinutesLast30Days: totalMinutes,
-        score: Math.min(100, Math.round(totalMinutes / 10))
+        score: Math.min(MAX_SCORE, Math.round(totalMinutes / SCORE_MULTIPLIER))
       }
     });
   }

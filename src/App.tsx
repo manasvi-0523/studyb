@@ -1,24 +1,31 @@
-import { Routes, Route } from 'react-router-dom';
-import { Shell } from './components/layout/Shell';
-import { CommandCenterPage } from './pages/CommandCenterPage';
-import { CombatDrillsPage } from './pages/CombatDrillsPage';
-import { DeepWorkPage } from './pages/DeepWorkPage';
-import { LegionPage } from './pages/LegionPage';
-import { LoginPage } from './pages/LoginPage';
+import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import { SplashScreen } from "./components/layout/SplashScreen";
+import { DashboardPage } from "./pages/DashboardPage";
+import { CommunityPage } from "./pages/CommunityPage";
+import { BotPrepPage } from "./pages/BotPrepPage";
+import { TimelinePage } from "./pages/TimelinePage";
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />;
+  }
+
   return (
-    <Routes>
-      <Route path="/auth" element={<LoginPage />} />
-      <Route path="/" element={<Shell />}>
-        <Route index element={<CommandCenterPage />} />
-        <Route path="combat-drills" element={<CombatDrillsPage />} />
-        <Route path="deep-work" element={<DeepWorkPage />} />
-        <Route path="legion" element={<LegionPage />} />
-      </Route>
-    </Routes>
+    <div className="min-h-screen bg-background text-charcoal font-inter animate-fade-in overflow-hidden">
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/bot-prep" element={<BotPrepPage />} />
+        <Route path="/timeline" element={<TimelinePage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <SpeedInsights />
+    </div>
   );
 }
 
 export default App;
-
