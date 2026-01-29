@@ -71,6 +71,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     const sessions = [...state.sessions, session];
     const totalMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+
     set({
       isGrinding: false,
       currentSessionStart: null,
@@ -97,4 +98,3 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     });
   }
 }));
-

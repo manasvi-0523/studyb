@@ -211,3 +211,79 @@
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.3);
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 1024px) {
+  /* Hide desktop sidebar on mobile */
+  .desktop-sidebar {
+    display: none;
+  }
+
+  /* Show mobile navigation */
+  .mobile-nav {
+    display: flex;
+  }
+
+  /* Adjust main content padding for mobile */
+  .mobile-main-content {
+    padding-bottom: 80px; /* Space for bottom nav */
+  }
+}
+
+@media (min-width: 1025px) {
+  /* Show desktop sidebar on larger screens */
+  .desktop-sidebar {
+    display: flex;
+  }
+
+  /* Hide mobile navigation on desktop */
+  .mobile-nav {
+    display: none;
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-main-content {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Mobile overlay for sidebar */
+.mobile-overlay {
+  @apply fixed inset-0 bg-black/50 z-40 lg:hidden;
+}
+
+/* Mobile slide-out sidebar */
+.mobile-sidebar {
+  @apply fixed top-0 left-0 h-full w-64 z-50 transform transition-transform duration-300 ease-in-out lg:hidden;
+}
+
+.mobile-sidebar.open {
+  @apply translate-x-0;
+}
+
+.mobile-sidebar.closed {
+  @apply -translate-x-full;
+}
+
+/* Bottom navigation styling */
+.bottom-nav {
+  @apply fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-md border-t border-charcoal/10 z-30;
+}
+
+.dark .bottom-nav {
+  @apply bg-surface/90 border-border;
+}
+
+/* Touch-friendly tap targets */
+@media (max-width: 1024px) {
+  button, a, .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
