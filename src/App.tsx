@@ -12,6 +12,13 @@ import { TimelinePage } from "./pages/TimelinePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AuthPage } from "./pages/AuthPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { useNotifications } from "./hooks/useNotifications";
+
+// Notification integration component
+function NotificationManager() {
+  useNotifications();
+  return null;
+}
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -24,6 +31,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
+          <NotificationManager />
           <div className="min-h-screen bg-background text-charcoal font-inter animate-fade-in overflow-hidden">
             <Routes>
               {/* Public Routes */}
