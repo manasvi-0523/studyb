@@ -1,0 +1,51 @@
+name: Preview Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  preview:
+    name: Build Preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Use empty values for preview (app works in dev mode)
+          VITE_FIREBASE_API_KEY: ''
+          VITE_FIREBASE_AUTH_DOMAIN: ''
+          VITE_FIREBASE_PROJECT_ID: ''
+          VITE_GROQ_API_KEY: ''
+
+      - name: Check build output
+        run: |
+          echo "Build completed successfully!"
+          ls -la dist/
+          du -sh dist/
+
+      - name: Comment PR with build status
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            const distSize = require('child_process').execSync('du -sh dist/').toString().split('\t')[0];
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Build Preview ✅\n\nBuild completed successfully!\n\n- **Bundle size:** ${distSize}\n- **Node version:** 20\n\n> This is an automated message from the CI workflow.`
+            });
