@@ -45,10 +45,10 @@ export function PriorityMatrix() {
         <div className="glass-card p-8 bg-white/40 h-full flex flex-col">
             <div className="mb-6">
                 <h3 className="font-playfair text-xl text-charcoal">Priority Matrix</h3>
-                <p className="text-xs text-charcoal/40 mt-1">Eisenhower 2x2 Strategy</p>
+                <p className="text-xs text-charcoal/60 dark:text-white/60 mt-1">Eisenhower 2x2 Strategy</p>
             </div>
 
-            <div className="flex-1 grid grid-cols-2 gap-4">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <Quadrant
                     title="Do"
                     subtitle="Urgent & Important"
@@ -80,8 +80,8 @@ export function PriorityMatrix() {
                 <Quadrant
                     title="Optimize"
                     subtitle="Urgent / Not Important"
-                    color="bg-beige/20"
-                    textColor="text-charcoal/60"
+                    color="bg-beige/30 dark:bg-white/10"
+                    textColor="text-charcoal/80 dark:text-white/80"
                     tasks={getTasksForQuadrant("optimize")}
                     isAdding={isAdding === "optimize"}
                     newTaskText={newTaskText}
@@ -94,8 +94,8 @@ export function PriorityMatrix() {
                 <Quadrant
                     title="Eliminate"
                     subtitle="Not Urgent / Not Important"
-                    color="bg-charcoal/5"
-                    textColor="text-charcoal/30"
+                    color="bg-charcoal/10 dark:bg-white/5"
+                    textColor="text-charcoal/70 dark:text-white/70"
                     tasks={getTasksForQuadrant("eliminate")}
                     isAdding={isAdding === "eliminate"}
                     newTaskText={newTaskText}
@@ -144,7 +144,7 @@ function Quadrant({
             <div className="flex justify-between items-start">
                 <div>
                     <h4 className={`text-xs font-bold uppercase tracking-widest ${textColor}`}>{title}</h4>
-                    <p className="text-[9px] text-charcoal/40 mt-0.5">{subtitle}</p>
+                    <p className="text-[9px] text-charcoal/60 dark:text-white/60 mt-0.5">{subtitle}</p>
                 </div>
                 <button
                     onClick={onStartAdd}

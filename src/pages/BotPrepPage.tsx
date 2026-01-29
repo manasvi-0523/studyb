@@ -261,9 +261,9 @@ export function BotPrepPage() {
 
     return (
         <DashboardLayout>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {/* Study Bot Suite */}
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
                     {viewMode === "input" && (
                         <InputView
                             prompt={prompt}
@@ -668,7 +668,7 @@ function InputView({
 
                     {/* Generation Buttons */}
                     {inputMode === "text" ? (
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-2 sm:gap-4">
                             <BotAction
                                 icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <Brain size={18} />}
                                 label="Gen Quiz"

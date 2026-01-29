@@ -2,37 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Light theme - Default (unchanged) */
+/* Light theme - Default (improved contrast) */
 :root {
   --color-background: #FFFEFB;
   --color-beige: #f5f3ed;
   --color-charcoal: #2d2a26;
-  --color-gold: #C9A962;
-  --color-sage: #7D9E7C;
+  --color-gold: #9A7B4F; /* Darker gold for better contrast */
+  --color-sage: #5A7A59; /* Darker sage for better contrast */
 
   /* Additional dark mode variables */
   --color-surface: #ffffff;
   --color-surface-hover: #f5f3ed;
-  --color-border: rgba(45, 42, 38, 0.1);
+  --color-border: rgba(45, 42, 38, 0.15);
   --color-text-primary: #2d2a26;
-  --color-text-secondary: rgba(45, 42, 38, 0.6);
-  --color-text-muted: rgba(45, 42, 38, 0.4);
+  --color-text-secondary: rgba(45, 42, 38, 0.75); /* Increased from 0.6 */
+  --color-text-muted: rgba(45, 42, 38, 0.6); /* Increased from 0.4 */
 }
 
 /* Dark theme */
 .dark {
-  --color-background: #121212;
-  --color-beige: #1e1e1e;
-  --color-charcoal: #e8e6e3;
-  --color-gold: #d4b875;
-  --color-sage: #8fb08e;
+  --color-background: #0f0f0f;
+  --color-beige: #1a1a1a;
+  --color-charcoal: #f0eeeb;
+  --color-gold: #e0c285; /* Lighter gold for dark mode */
+  --color-sage: #a8c9a7; /* Lighter sage for dark mode */
 
-  --color-surface: #1e1e1e;
-  --color-surface-hover: #2a2a2a;
-  --color-border: rgba(255, 255, 255, 0.1);
-  --color-text-primary: #e8e6e3;
-  --color-text-secondary: rgba(232, 230, 227, 0.7);
-  --color-text-muted: rgba(232, 230, 227, 0.5);
+  --color-surface: #1a1a1a;
+  --color-surface-hover: #252525;
+  --color-border: rgba(255, 255, 255, 0.15);
+  --color-text-primary: #f0eeeb;
+  --color-text-secondary: rgba(240, 238, 235, 0.8); /* Increased from 0.7 */
+  --color-text-muted: rgba(240, 238, 235, 0.65); /* Increased from 0.5 */
 }
 
 @layer base {
@@ -97,16 +97,19 @@
     color: var(--color-text-primary) !important;
   }
 
+  .dark .text-charcoal\/30,
   .dark .text-charcoal\/40 {
     color: var(--color-text-muted) !important;
   }
 
+  .dark .text-charcoal\/50,
   .dark .text-charcoal\/60 {
     color: var(--color-text-secondary) !important;
   }
 
+  .dark .text-charcoal\/70,
   .dark .text-charcoal\/80 {
-    color: rgba(232, 230, 227, 0.85) !important;
+    color: rgba(240, 238, 235, 0.9) !important;
   }
 
   .dark .border-charcoal\/5,

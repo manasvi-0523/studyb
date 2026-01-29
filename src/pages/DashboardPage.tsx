@@ -101,7 +101,7 @@ export function DashboardPage() {
     return (
         <DashboardLayout>
             {/* Quick Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                 <StatCard
                     icon={<Clock size={20} className="text-gold" />}
                     label="Study Time"
@@ -128,7 +128,7 @@ export function DashboardPage() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
                 {/* Study Session */}
                 <div className="glass-card p-6 bg-white/40">
                     <h3 className="font-playfair text-xl text-charcoal dark:text-white mb-4">Quick Study</h3>
@@ -286,13 +286,13 @@ export function DashboardPage() {
 
 function StatCard({ icon, label, value, subtext }: { icon: React.ReactNode; label: string; value: string; subtext: string }) {
     return (
-        <div className="glass-card p-4 bg-white/40">
-            <div className="flex items-center gap-3 mb-2">
+        <div className="glass-card p-3 sm:p-4 bg-white/40">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2">
                 {icon}
-                <span className="text-xs font-bold text-charcoal/60 dark:text-white/60 uppercase tracking-wider">{label}</span>
+                <span className="text-[10px] sm:text-xs font-bold text-charcoal/70 dark:text-white/70 uppercase tracking-wider">{label}</span>
             </div>
-            <p className="text-2xl font-bold text-charcoal dark:text-white">{value}</p>
-            <p className="text-xs text-charcoal/40 dark:text-white/40">{subtext}</p>
+            <p className="text-xl sm:text-2xl font-bold text-charcoal dark:text-white">{value}</p>
+            <p className="text-[10px] sm:text-xs text-charcoal/60 dark:text-white/60">{subtext}</p>
         </div>
     );
 }

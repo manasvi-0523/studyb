@@ -1,14 +1,15 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        background: "#F8F6F1",
-        charcoal: "#2D3132",
-        gold: "#C7B99D",
-        sage: "#9AA68C",
-        beige: "#E3DCD1",
+        background: "#FFFEFB",
+        charcoal: "#2d2a26",
+        gold: "#9A7B4F", /* Darker gold for better contrast */
+        sage: "#5A7A59", /* Darker sage for better contrast */
+        beige: "#f5f3ed",
         surface: "#FFFFFF",
       },
       fontFamily: {
