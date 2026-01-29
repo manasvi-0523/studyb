@@ -12,12 +12,7 @@ const getGroqClient = (): GroqRAG => {
     }
 
     if (!client) {
-        // dangerouslyAllowBrowser is needed for browser environments
-        // groq-rag passes this to the underlying groq-sdk client
-        client = new GroqRAG({
-            apiKey,
-            dangerouslyAllowBrowser: true
-        } as any);
+        client = new GroqRAG({ apiKey, dangerouslyAllowBrowser: true });
     }
 
     return client;

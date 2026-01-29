@@ -12,7 +12,7 @@ const getGroqClient = (): GroqRAG => {
     }
 
     if (!client) {
-        client = new GroqRAG({ apiKey, dangerouslyAllowBrowser: true } as any);
+        client = new GroqRAG({ apiKey, dangerouslyAllowBrowser: true });
     }
 
     return client;
