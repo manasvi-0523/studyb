@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { SplashScreen } from "./components/layout/SplashScreen";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CommunityPage } from "./pages/CommunityPage";
@@ -22,6 +23,7 @@ function App() {
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <SpeedInsights />
     </div>
   );
 }
