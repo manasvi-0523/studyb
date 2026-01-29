@@ -44,3 +44,20 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
   @apply bg-charcoal/10 rounded-full hover:bg-charcoal/20 transition-colors;
 }
+
+/* Mobile Safe Area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Prevent overscroll bounce on mobile */
+html {
+  overscroll-behavior: none;
+}
+
+/* Account for bottom nav on mobile */
+@media (max-width: 1023px) {
+  .custom-scrollbar {
+    padding-bottom: 5rem;
+  }
+}

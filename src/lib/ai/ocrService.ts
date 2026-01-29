@@ -1,6 +1,9 @@
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
+// Current valid Groq vision model (as of Jan 2026)
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
 export async function performOCR(base64Data: string, mimeType: string): Promise<string> {
     if (!API_KEY) {
         throw new Error("VITE_GROQ_API_KEY is missing.");
@@ -9,7 +12,7 @@ export async function performOCR(base64Data: string, mimeType: string): Promise<
     const prompt = "Transcribe the text from this image exactly as it appears. If it's handwriting, do your best to be accurate. Return ONLY the transcribed text, no preamble or commentary.";
 
     const body = {
-        model: "llama-3.2-11b-vision-preview",  // Smaller model with higher rate limits
+        model: VISION_MODEL,
         messages: [
             {
                 role: "user",
@@ -39,7 +42,13 @@ export async function performOCR(base64Data: string, mimeType: string): Promise<
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`OCR Failed: ${response.status} ${errorText}`);
+        console.error("OCR API Error:", errorText);
+
+        if (response.status === 401) {
+            throw new Error("Invalid API Key: Please check your VITE_GROQ_API_KEY in .env file.");
+        }
+
+        throw new Error(`OCR Failed: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();

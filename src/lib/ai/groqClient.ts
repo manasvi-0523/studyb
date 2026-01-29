@@ -3,6 +3,10 @@ import type { DrillQuestion, Flashcard, SubjectKey } from "../../types";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
+// Current valid Groq models (as of Jan 2026)
+const TEXT_MODEL = "llama-3.3-70b-versatile"; // Production model for text
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"; // Vision-capable model
+
 export interface CombatDrillRequest {
     materialText: string;
     subjectId: SubjectKey;
@@ -25,7 +29,7 @@ const SYSTEM_PROMPT =
     "Given study material, generate exactly 5 difficult MCQs as 'combatDrills' " +
     "and 10 spaced-repetition flashcards as 'flashcards'. " +
     "Return only minified JSON with fields { combatDrills: [...], flashcards: [...] } " +
-    "where MCQs include id, question, options, correctOptionId, explanation, subjectId, difficulty='hard' " +
+    "where MCQs include id, question, options (array of {id, text}), correctOptionId, explanation, subjectId, difficulty='hard' " +
     "and flashcards include id, front, back, subjectId.";
 
 function validateConfig() {
@@ -38,6 +42,9 @@ export async function generateCombatDrills(
     payload: CombatDrillRequest
 ): Promise<CombatDrillResponse> {
     validateConfig();
+
+    const hasImages = payload.images && payload.images.length > 0;
+    const model = hasImages ? VISION_MODEL : TEXT_MODEL;
 
     const userPrompt =
         SYSTEM_PROMPT +
@@ -55,10 +62,10 @@ export async function generateCombatDrills(
     ];
 
     // If images are provided, use vision model with multimodal content
-    if (payload.images && payload.images.length > 0) {
+    if (hasImages) {
         messages[0].content = [
             { type: "text", text: userPrompt },
-            ...payload.images.map(img => ({
+            ...payload.images!.map(img => ({
                 type: "image_url",
                 image_url: {
                     url: `data:${img.inlineData.mimeType};base64,${img.inlineData.data}`
@@ -68,10 +75,8 @@ export async function generateCombatDrills(
     }
 
     const body = {
-        model: payload.images && payload.images.length > 0
-            ? "llama-3.2-11b-vision-preview"  // Smaller vision model - higher limits
-            : "llama-3.1-8b-instant",          // Fast model with high rate limits
-        messages: messages,
+        model,
+        messages,
         temperature: 0.7,
         max_tokens: 4000
     };
@@ -91,6 +96,10 @@ export async function generateCombatDrills(
 
         if (response.status === 429) {
             throw new Error("API Rate Limit Exceeded: You've sent too many requests. Please wait and try again.");
+        }
+
+        if (response.status === 401) {
+            throw new Error("Invalid API Key: Please check your VITE_GROQ_API_KEY in .env file.");
         }
 
         const keyHint = API_KEY ? `${API_KEY.substring(0, 8)}...` : "MISSING";
@@ -126,7 +135,16 @@ export async function generateCombatDrills(
         throw new Error("Received malformed response from AI. Check console for raw output.");
     }
 
-    const questions: DrillQuestion[] = parsed.combatDrills;
+    const questions: DrillQuestion[] = (parsed.combatDrills ?? []).map((q: any) => ({
+        id: q.id ?? crypto.randomUUID(),
+        question: q.question,
+        options: q.options ?? [],
+        correctOptionId: q.correctOptionId,
+        explanation: q.explanation ?? "",
+        subjectId: q.subjectId ?? payload.subjectId,
+        difficulty: q.difficulty ?? "hard"
+    }));
+
     const flashcards: Flashcard[] = (parsed.flashcards ?? []).map((card: Partial<Flashcard>, index: number) => {
         const dueAt = new Date();
         dueAt.setSeconds(dueAt.getSeconds() + (index * 5));

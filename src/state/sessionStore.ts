@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { SubjectKey, StudySession, PowerLevelSummary } from "../types";
+import { syncSessionToSupabase, fetchUserSessions } from "../lib/supabaseSync";
 
 interface SessionState {
   activeSubject: SubjectKey | null;
@@ -10,6 +11,7 @@ interface SessionState {
   setActiveSubject: (subject: SubjectKey | null) => void;
   startGrind: (subject: SubjectKey) => void;
   stopGrind: () => void;
+  loadFromSupabase: () => Promise<void>;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -57,6 +59,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     };
     const sessions = [...state.sessions, session];
     const totalMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+
     set({
       isGrinding: false,
       currentSessionStart: null,
@@ -67,6 +70,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         score: Math.min(MAX_SCORE, Math.round(totalMinutes / SCORE_MULTIPLIER))
       }
     });
+
+    // Sync to Supabase in background
+    syncSessionToSupabase(session).catch(err => {
+      console.error("Failed to sync session to Supabase:", err);
+    });
+  },
+  async loadFromSupabase() {
+    const sessions = await fetchUserSessions();
+    if (sessions.length === 0) return;
+
+    const SCORE_MULTIPLIER = 10;
+    const MAX_SCORE = 100;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const recentSessions = sessions.filter(
+      s => new Date(s.startedAt) >= thirtyDaysAgo
+    );
+    const totalMinutes = recentSessions.reduce(
+      (sum, s) => sum + s.durationMinutes,
+      0
+    );
+
+    set({
+      sessions,
+      powerLevel: {
+        score: Math.min(MAX_SCORE, Math.round(totalMinutes / SCORE_MULTIPLIER)),
+        totalStudyMinutesLast30Days: totalMinutes,
+        averageDrillAccuracy: 0
+      }
+    });
   }
 }));
-

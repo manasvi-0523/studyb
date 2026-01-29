@@ -1,4 +1,4 @@
-import { Video, Mic, MessageSquare } from "lucide-react";
+import { Video, Mic, MessageSquare, Users } from "lucide-react";
 
 export function StudyRoomList() {
     const rooms = [
@@ -51,8 +51,3 @@ export function StudyRoomList() {
         </div>
     );
 }
-
-function Users({ size, className }: { size: number, className: string }) {
-    return <UsersIcon size={size} className={className} />;
-}
-import { Users as UsersIcon } from "lucide-react";
