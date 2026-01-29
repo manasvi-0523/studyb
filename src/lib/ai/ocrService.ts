@@ -2,7 +2,7 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 // Current valid Groq vision model (as of Jan 2026)
-const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const VISION_MODEL = "meta-llama/llama-4-maverick-17b-128e-instruct";
 
 export async function performOCR(base64Data: string, mimeType: string): Promise<string> {
     if (!API_KEY) {
