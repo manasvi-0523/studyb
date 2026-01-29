@@ -11,9 +11,9 @@ export function ProtectedRoute({ children, requireEmailVerification = false }: P
     const { isAuthenticated, isEmailVerified, isLoading, isFirebaseEnabled } = useAuth();
     const location = useLocation();
 
-    // If Firebase is not enabled, allow access (for development)
+    // Always require authentication - redirect to login if Firebase not configured
     if (!isFirebaseEnabled) {
-        return <>{children}</>;
+        return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     // Show loading state
@@ -46,7 +46,7 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isLoading, isFirebaseEnabled } = useAuth();
     const location = useLocation();
 
-    // If Firebase is not enabled, render children
+    // Always show login page (will display Firebase config message if not configured)
     if (!isFirebaseEnabled) {
         return <>{children}</>;
     }

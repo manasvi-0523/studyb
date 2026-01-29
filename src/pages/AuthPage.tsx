@@ -192,8 +192,14 @@ export function AuthPage() {
 
                     {/* Firebase not configured notice */}
                     {!isFirebaseEnabled && (
-                        <div className="mt-6 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
-                            <strong>Development Mode:</strong> Firebase is not configured. Add your Firebase config to .env to enable authentication.
+                        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300">
+                            <strong>Firebase Not Configured</strong>
+                            <p className="mt-1">Authentication is disabled. To enable login:</p>
+                            <ol className="mt-2 ml-4 list-decimal space-y-1">
+                                <li>Create a Firebase project at <span className="font-mono">console.firebase.google.com</span></li>
+                                <li>Enable Email/Password authentication</li>
+                                <li>Add environment variables in Vercel dashboard</li>
+                            </ol>
                         </div>
                     )}
                 </div>
