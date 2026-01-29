@@ -56,3 +56,13 @@ export interface StudyTask {
   isUrgent: boolean;
 }
 
+export type MatrixQuadrant = "do" | "schedule" | "optimize" | "eliminate";
+
+export interface MatrixTask {
+  id: string;
+  title: string;
+  quadrant: MatrixQuadrant;
+  completed: boolean;
+  createdAt: number;
+}
+
