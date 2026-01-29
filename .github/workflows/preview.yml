@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   preview:
     name: Build Preview
@@ -37,10 +41,8 @@ jobs:
 
       - name: Comment PR with build status
         uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
         with:
           script: |
-            const fs = require('fs');
             const distSize = require('child_process').execSync('du -sh dist/').toString().split('\t')[0];
 
             github.rest.issues.createComment({
