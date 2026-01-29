@@ -32,11 +32,15 @@ export function StudyRoomList() {
     const [newRoom, setNewRoom] = useState<{ name: string; mode: StudyRoom["mode"] }>({ name: "", mode: "Silent" });
     const [isCreating, setIsCreating] = useState(false);
 
-    // Load rooms
+    // Load rooms and user joined state in parallel
     useEffect(() => {
+        // Fetch user joined rooms immediately if logged in
+        if (user) {
+            getUserJoinedRooms(user.uid).then(setUserJoinedRooms);
+        }
+
         const unsubscribe = subscribeToStudyRooms((data) => {
             if (data.length === 0) {
-                // Use default rooms if none in DB
                 setRooms(DEFAULT_ROOMS.map(r => ({ ...r, isJoined: false })));
             } else {
                 setRooms(data.map(r => ({ ...r, isJoined: false })));
@@ -45,15 +49,6 @@ export function StudyRoomList() {
         });
 
         return () => unsubscribe();
-    }, []);
-
-    // Load user's joined rooms
-    useEffect(() => {
-        if (!user) return;
-
-        getUserJoinedRooms(user.uid).then(joined => {
-            setUserJoinedRooms(joined);
-        });
     }, [user]);
 
     // Merge user joined state with rooms

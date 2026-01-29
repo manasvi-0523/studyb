@@ -53,11 +53,15 @@ export function OpportunityFeed() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityWithUserState | null>(null);
 
-    // Load opportunities
+    // Load opportunities and user interests in parallel
     useEffect(() => {
+        // Fetch user interests immediately if logged in
+        if (user) {
+            getUserInterests(user.uid).then(setUserInterests);
+        }
+
         const unsubscribe = subscribeToOpportunities((data) => {
             if (data.length === 0) {
-                // Use default opportunities if none in DB
                 setOpportunities(DEFAULT_OPPORTUNITIES.map(o => ({ ...o, isInterested: false })));
             } else {
                 setOpportunities(data.map(o => ({ ...o, isInterested: false })));
@@ -66,15 +70,6 @@ export function OpportunityFeed() {
         });
 
         return () => unsubscribe();
-    }, []);
-
-    // Load user's interests
-    useEffect(() => {
-        if (!user) return;
-
-        getUserInterests(user.uid).then(interests => {
-            setUserInterests(interests);
-        });
     }, [user]);
 
     // Merge user interests with opportunities

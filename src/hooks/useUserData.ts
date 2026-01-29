@@ -26,6 +26,42 @@ import {
 import { useSessionStore } from "../state/sessionStore";
 import type { Flashcard, DrillQuestion } from "../types";
 
+// Simple cache helpers
+const CACHE_KEY = "elite-user-data-cache";
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+interface CachedData {
+    assessments: Assessment[];
+    events: CalendarEvent[];
+    stats: StudyStats | null;
+    timestamp: number;
+}
+
+function getCachedData(userId: string): CachedData | null {
+    try {
+        const raw = localStorage.getItem(`${CACHE_KEY}-${userId}`);
+        if (!raw) return null;
+        const cached = JSON.parse(raw) as CachedData;
+        if (Date.now() - cached.timestamp > CACHE_TTL) return null;
+        return cached;
+    } catch {
+        return null;
+    }
+}
+
+function setCachedData(userId: string, data: Partial<CachedData>) {
+    try {
+        const existing = getCachedData(userId) || { assessments: [], events: [], stats: null, timestamp: 0 };
+        localStorage.setItem(`${CACHE_KEY}-${userId}`, JSON.stringify({
+            ...existing,
+            ...data,
+            timestamp: Date.now()
+        }));
+    } catch {
+        // Ignore cache errors
+    }
+}
+
 export function useUserData() {
     const { user, isAuthenticated, isFirebaseEnabled } = useAuth();
     const loadSessions = useSessionStore((state) => state.loadSessions);
@@ -38,6 +74,17 @@ export function useUserData() {
     const [stats, setStats] = useState<StudyStats | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Load cached data immediately for instant UI
+    useEffect(() => {
+        if (!user) return;
+        const cached = getCachedData(user.uid);
+        if (cached) {
+            setAssessments(cached.assessments);
+            setEvents(cached.events);
+            if (cached.stats) setStats(cached.stats);
+        }
+    }, [user]);
 
     // Load all user data
     const loadUserData = useCallback(async () => {
@@ -72,6 +119,13 @@ export function useUserData() {
             setAttendance(userAttendance);
             setEvents(userEvents);
             setStats(userStats);
+
+            // Cache for instant load next time
+            setCachedData(user.uid, {
+                assessments: userAssessments,
+                events: userEvents,
+                stats: userStats
+            });
         } catch (err) {
             console.error("Failed to load user data:", err);
             setError("Failed to load your data. Please try again.");

@@ -34,30 +34,27 @@ export function CommunityPage() {
     const [showNewPostInput, setShowNewPostInput] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
 
-    // Load achievements and user reactions
+    // Load achievements and user data in parallel
     useEffect(() => {
+        // Start loading immediately, fetch user data in parallel
+        const loadUserData = user
+            ? Promise.all([
+                getUserReactions(user.uid),
+                getUserStartupApplications(user.uid)
+              ])
+            : Promise.resolve([[], []]);
+
+        loadUserData.then(([reactions, apps]) => {
+            setUserReactions(reactions);
+            if (apps.length > 0) setApplicationSubmitted(true);
+        });
+
         const unsubscribe = subscribeToAchievements((data) => {
             setAchievements(data.map(a => ({ ...a, userReactions: [] })));
             setIsLoading(false);
         });
 
         return () => unsubscribe();
-    }, []);
-
-    // Load user's reactions
-    useEffect(() => {
-        if (!user) return;
-
-        getUserReactions(user.uid).then(reactions => {
-            setUserReactions(reactions);
-        });
-
-        // Check if user has submitted startup application
-        getUserStartupApplications(user.uid).then(apps => {
-            if (apps.length > 0) {
-                setApplicationSubmitted(true);
-            }
-        });
     }, [user]);
 
     // Merge user reactions with achievements
