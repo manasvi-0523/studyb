@@ -2,7 +2,7 @@ import { DashboardLayout } from "../components/layout/DashboardLayout";
 import { Sparkles, Search, MessageSquare, Brain, FileText, ChevronRight, X, Check, RefreshCw, Loader2, Send, Bot, Upload, Link, Globe, Clock, Zap } from "lucide-react";
 import { useState, useRef } from "react";
 import { generateQuiz, generateFlashcards, generateMindMap, generateFromURL, chat, type MindMapNode, type MindMapResponse, type GenerationResult } from "../lib/ai/groqClient";
-import { extractTextFromFile } from "../lib/fileUtils";
+import { extractTextFromFile, getSupportedFileTypes } from "../lib/fileUtils";
 import { saveFlashcardsBatch, saveQuizQuestionsBatch } from "../lib/dataService";
 import { getCurrentUser } from "../lib/firebaseClient";
 import type { DrillQuestion, Flashcard, SubjectKey } from "../types";
@@ -613,7 +613,7 @@ function InputView({
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept=".pdf,.txt,.jpg,.jpeg,.png,image/*,text/*"
+                                    accept={getSupportedFileTypes()}
                                     onChange={onFileUpload}
                                     className="hidden"
                                 />
