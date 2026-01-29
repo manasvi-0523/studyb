@@ -1,7 +1,10 @@
 import { DashboardLayout } from "../components/layout/DashboardLayout";
-import { Sparkles, Search, MessageSquare, Brain, FileText, ChevronRight, X, Check, RefreshCw, Loader2, Send, Bot } from "lucide-react";
-import { useState } from "react";
+import { Sparkles, Search, MessageSquare, Brain, FileText, ChevronRight, X, Check, RefreshCw, Loader2, Send, Bot, Upload } from "lucide-react";
+import { useState, useRef } from "react";
 import { generateQuiz, generateFlashcards, generateMindMap, type MindMapNode, type MindMapResponse } from "../lib/ai/groqClient";
+import { extractTextFromFile } from "../lib/fileUtils";
+import { saveFlashcardsBatch, saveQuizQuestionsBatch } from "../lib/dataService";
+import { getCurrentUser } from "../lib/firebaseClient";
 import type { DrillQuestion, Flashcard, SubjectKey } from "../types";
 
 type GenerationMode = "idle" | "quiz" | "flashcards" | "mindmap";
@@ -19,6 +22,8 @@ export function BotPrepPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>("input");
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Results state
     const [quizQuestions, setQuizQuestions] = useState<DrillQuestion[]>([]);
@@ -56,6 +61,8 @@ export function BotPrepPage() {
         setError(null);
 
         try {
+            const user = getCurrentUser();
+
             switch (mode) {
                 case "quiz":
                     const questions = await generateQuiz(prompt, subject, 5);
@@ -64,6 +71,11 @@ export function BotPrepPage() {
                     setSelectedAnswers({});
                     setShowExplanation(false);
                     setViewMode("quiz-results");
+
+                    // Save to Firebase
+                    if (user) {
+                        await saveQuizQuestionsBatch(user.uid, questions);
+                    }
                     break;
                 case "flashcards":
                     const cards = await generateFlashcards(prompt, subject, 10);
@@ -71,6 +83,11 @@ export function BotPrepPage() {
                     setCurrentCardIndex(0);
                     setIsFlipped(false);
                     setViewMode("flashcard-results");
+
+                    // Save to Firebase
+                    if (user) {
+                        await saveFlashcardsBatch(user.uid, cards);
+                    }
                     break;
                 case "mindmap":
                     const map = await generateMindMap(prompt, subject);
@@ -88,6 +105,25 @@ export function BotPrepPage() {
     const resetToInput = () => {
         setViewMode("input");
         setError(null);
+    };
+
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        setError(null);
+        setUploadedFileName(file.name);
+
+        try {
+            const extractedText = await extractTextFromFile(file);
+            setPrompt(extractedText);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to process file. Please try again.");
+            setUploadedFileName(null);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // AI Chat handler
@@ -159,6 +195,9 @@ export function BotPrepPage() {
                             isLoading={isLoading}
                             error={error}
                             onGenerate={handleGenerate}
+                            fileInputRef={fileInputRef}
+                            onFileUpload={handleFileUpload}
+                            uploadedFileName={uploadedFileName}
                         />
                     )}
 
@@ -378,7 +417,10 @@ function InputView({
     setSubject,
     isLoading,
     error,
-    onGenerate
+    onGenerate,
+    fileInputRef,
+    onFileUpload,
+    uploadedFileName
 }: {
     prompt: string;
     setPrompt: (v: string) => void;
@@ -387,6 +429,9 @@ function InputView({
     isLoading: boolean;
     error: string | null;
     onGenerate: (mode: GenerationMode) => void;
+    fileInputRef: React.RefObject<HTMLInputElement>;
+    onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    uploadedFileName: string | null;
 }) {
     return (
         <div className="glass-card p-10 bg-white/60 border-gold/10 relative overflow-hidden">
@@ -421,16 +466,42 @@ function InputView({
                         ))}
                     </div>
 
-                    <div className="relative">
-                        <textarea
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="Paste your lecture notes or topic here..."
-                            className="w-full h-48 bg-background/50 border border-charcoal/5 rounded-3xl p-6 text-sm focus:outline-none focus:border-gold/40 transition-all resize-none font-inter"
-                            disabled={isLoading}
-                        />
-                        <div className="absolute bottom-4 right-4 text-[10px] text-charcoal/30 font-bold uppercase tracking-widest">
-                            AI Processor v2.0
+                    <div className="space-y-3">
+                        <div className="flex gap-3">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf,.txt,.jpg,.jpeg,.png,image/*,text/*"
+                                onChange={onFileUpload}
+                                className="hidden"
+                            />
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isLoading}
+                                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium bg-charcoal/5 text-charcoal/60 hover:bg-charcoal/10 transition-all disabled:opacity-50"
+                            >
+                                <Upload size={14} />
+                                Upload File
+                            </button>
+                            {uploadedFileName && (
+                                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs bg-sage/20 text-sage">
+                                    <Check size={14} />
+                                    {uploadedFileName}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="relative">
+                            <textarea
+                                value={prompt}
+                                onChange={(e) => setPrompt(e.target.value)}
+                                placeholder="Paste your lecture notes or topic here, or upload a file..."
+                                className="w-full h-48 bg-background/50 border border-charcoal/5 rounded-3xl p-6 text-sm focus:outline-none focus:border-gold/40 transition-all resize-none font-inter"
+                                disabled={isLoading}
+                            />
+                            <div className="absolute bottom-4 right-4 text-[10px] text-charcoal/30 font-bold uppercase tracking-widest">
+                                AI Processor v2.0
+                            </div>
                         </div>
                     </div>
 
