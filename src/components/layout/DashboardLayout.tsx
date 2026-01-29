@@ -24,7 +24,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             )}
 
             {/* Mobile Slide-out Sidebar */}
-            <aside className={`mobile-sidebar bg-white/95 dark:bg-surface/95 backdrop-blur-xl flex flex-col ${mobileMenuOpen ? 'open' : 'closed'}`}>
+            <aside className={`mobile-sidebar bg-white/95 dark:bg-[#1e1e1e]/95 backdrop-blur-xl flex flex-col ${mobileMenuOpen ? 'open' : 'closed'}`}>
                 <div className="p-6 flex items-center justify-between border-b border-charcoal/5">
                     <Link to="/" onClick={() => setMobileMenuOpen(false)}>
                         <h1 className="text-2xl font-playfair text-charcoal tracking-tight">Elite</h1>
