@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { SubjectKey, StudySession, PowerLevelSummary } from "../types";
+import { saveStudySession } from "../lib/dataService";
+import { getCurrentUser } from "../lib/firebaseClient";
 
 interface SessionState {
   activeSubject: SubjectKey | null;
@@ -10,6 +12,7 @@ interface SessionState {
   setActiveSubject: (subject: SubjectKey | null) => void;
   startGrind: (subject: SubjectKey) => void;
   stopGrind: () => void;
+  loadSessions: (sessions: StudySession[]) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -33,7 +36,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       currentSessionStart: now
     });
   },
-  stopGrind() {
+  async stopGrind() {
     const state = get();
     if (!state.isGrinding || !state.currentSessionStart || !state.activeSubject) {
       return;
@@ -55,6 +58,17 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       endedAt: end.toISOString(),
       durationMinutes
     };
+
+    // Save to Firebase if user is authenticated
+    const user = getCurrentUser();
+    if (user) {
+      try {
+        await saveStudySession(user.uid, session);
+      } catch (error) {
+        console.error("Failed to save session to Firebase:", error);
+      }
+    }
+
     const sessions = [...state.sessions, session];
     const totalMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
     set({
@@ -65,6 +79,20 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         ...state.powerLevel,
         totalStudyMinutesLast30Days: totalMinutes,
         score: Math.min(MAX_SCORE, Math.round(totalMinutes / SCORE_MULTIPLIER))
+      }
+    });
+  },
+  loadSessions(sessions) {
+    const totalMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const SCORE_MULTIPLIER = 10;
+    const MAX_SCORE = 100;
+
+    set({
+      sessions,
+      powerLevel: {
+        score: Math.min(MAX_SCORE, Math.round(totalMinutes / SCORE_MULTIPLIER)),
+        totalStudyMinutesLast30Days: totalMinutes,
+        averageDrillAccuracy: 0
       }
     });
   }
