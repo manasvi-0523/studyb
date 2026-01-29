@@ -32,7 +32,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 </nav>
 
                 <div className="p-4 border-t border-charcoal/5 space-y-2">
-                    <NavItem icon={<Settings size={18} />} label="Settings" />
+                    <Link to="/settings">
+                        <NavItem icon={<Settings size={18} />} label="Settings" active={location.pathname === "/settings"} />
+                    </Link>
                     <div className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-charcoal/5 transition-colors cursor-pointer group">
                         <div className="w-8 h-8 rounded-full bg-sage/20 border border-sage/40 flex items-center justify-center text-sage font-medium text-xs">
                             M
