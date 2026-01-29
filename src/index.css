@@ -2,33 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
-html,
-body,
+@layer base {
+  body {
+    @apply bg-background text-charcoal font-inter transition-colors duration-500;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-playfair;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/40 border border-white/20 backdrop-blur-md shadow-sm rounded-2xl;
+  }
+
+  .gold-button {
+    @apply bg-gold text-white px-6 py-2 rounded-full font-medium transition-all duration-300;
+    @apply hover:bg-gold/90 hover:shadow-lg active:scale-95 disabled:opacity-50;
+  }
+}
+
 #root {
   height: 100%;
 }
 
-body {
-  background: radial-gradient(circle at top, #111111 0, #050505 50%, #000000 100%);
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
 }
 
-.glass-panel {
-  background: rgba(17, 17, 17, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(18px);
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.neon-button {
-  transition: box-shadow 0.2s ease, transform 0.1s ease, background-color 0.2s ease;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-charcoal/10 rounded-full hover:bg-charcoal/20 transition-colors;
 }
-
-.neon-button:hover {
-  box-shadow: 0 0 18px rgba(46, 91, 255, 0.85);
-  transform: translateY(-1px);
-}
-
-.neon-button-urgent:hover {
-  box-shadow: 0 0 18px rgba(255, 49, 49, 0.9);
-  transform: translateY(-1px);
-}
-

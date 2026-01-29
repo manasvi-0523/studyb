@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Set worker source locally using Vite's asset handling
 // @ts-ignore - Vite handled worker URL
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { performOCR } from './ai/ocrService';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 export async function extractTextFromFile(file: File): Promise<string> {
@@ -10,6 +11,9 @@ export async function extractTextFromFile(file: File): Promise<string> {
         return extractPdfText(file);
     } else if (file.type.startsWith('text/') || file.type === 'application/json') {
         return extractPlainText(file);
+    } else if (file.type.startsWith('image/')) {
+        const base64 = await fileToBase64(file);
+        return performOCR(base64, file.type);
     }
     throw new Error(`Unsupported text file type: ${file.type}`);
 }
