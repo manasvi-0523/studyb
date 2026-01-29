@@ -1,10 +1,14 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Users, BookOpen, Calendar as CalendarIcon, Settings, Bell, Menu, X } from "lucide-react";
+import { useUserData } from "../../hooks/useUserData";
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    // Load user data from Firebase on mount
+    useUserData();
 
     const navItems = [
         { to: "/", icon: LayoutDashboard, label: "Dashboard" },

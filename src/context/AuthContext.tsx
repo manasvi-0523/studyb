@@ -75,6 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         await logOut();
         setNotifications([]);
+        // Clear localStorage on logout
+        localStorage.removeItem("elite-session-store");
     };
 
     const sendVerification = async () => {
