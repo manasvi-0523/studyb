@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { SpeedInsights } from "@vercel/speed-insights/react";
+import { AuthProvider } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { ProtectedRoute, PublicRoute } from "./components/auth/ProtectedRoute";
 import { SplashScreen } from "./components/layout/SplashScreen";
-import { RequireAuth } from "./components/auth/RequireAuth";
-import { ErrorBoundary } from "./components/common/ErrorBoundary";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CommunityPage } from "./pages/CommunityPage";
 import { BotPrepPage } from "./pages/BotPrepPage";
 import { TimelinePage } from "./pages/TimelinePage";
-import { LoginPage } from "./pages/LoginPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { AuthPage } from "./pages/AuthPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -19,27 +20,64 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-background text-charcoal font-inter animate-fade-in overflow-hidden">
-        <Routes>
-          {/* Public route */}
-          <Route path="/auth" element={<LoginPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <div className="min-h-screen bg-background text-charcoal font-inter animate-fade-in overflow-hidden">
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={
+              <PublicRoute>
+                <AuthPage />
+              </PublicRoute>
+            } />
 
-          {/* Protected routes */}
-          <Route element={<RequireAuth />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/community" element={<CommunityPage />} />
-            <Route path="/bot-prep" element={<BotPrepPage />} />
-            <Route path="/timeline" element={<TimelinePage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Route>
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <SpeedInsights />
-      </div>
-    </ErrorBoundary>
+            {/* Protected Routes */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/community" element={
+              <ProtectedRoute>
+                <CommunityPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/bot-prep" element={
+              <ProtectedRoute>
+                <BotPrepPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/timeline" element={
+              <ProtectedRoute>
+                <TimelinePage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
 export default App;
+
