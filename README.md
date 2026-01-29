@@ -1,17 +1,31 @@
 # Elite - Academic Manager
 
+[![Vercel](https://img.shields.io/badge/Vercel-deployed-brightgreen?logo=vercel&logoColor=white)](https://studyb.vercel.app)
+[![CI](https://github.com/manasvi-0523/studyb/actions/workflows/ci.yml/badge.svg)](https://github.com/manasvi-0523/studyb/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A modern study management application built with React, TypeScript, and Firebase. Generate AI-powered quizzes and flashcards from your study materials. Mobile-friendly with responsive design and dark mode support.
+
+**[Live Demo](https://studyb.vercel.app)** · **[Report Bug](https://github.com/manasvi-0523/studyb/issues)** · **[Request Feature](https://github.com/manasvi-0523/studyb/issues)**
 
 ## Features
 
-- **AI-Powered Study Tools**: Generate MCQ quizzes and flashcards from text, PDFs, or images
-- **OCR Support**: Extract text from images using Groq vision models
-- **Spaced Repetition**: SM-2 algorithm for optimal flashcard scheduling
-- **Study Session Tracking**: Track your study time by subject
-- **Community Features**: Join virtual study rooms
-- **Academic Timeline**: Track deadlines and events
-- **Dark Mode**: Light/dark/system theme support
-- **Mobile Responsive**: Bottom navigation, slide-out sidebar, touch-friendly
+| Feature | Description |
+|---------|-------------|
+| **AI Quiz Generation** | Generate MCQ quizzes from text, PDFs, or images using Groq LLM |
+| **Flashcard Creator** | Create and study flashcards with AI assistance |
+| **OCR Support** | Extract text from images using vision models |
+| **Spaced Repetition** | SM-2 algorithm for optimal flashcard scheduling |
+| **Study Sessions** | Track study time by subject with real-time timer |
+| **Assessment Tracker** | Manage assignments, projects, and exams with due dates |
+| **Academic Calendar** | Visual timeline for all academic events |
+| **Web Notifications** | Get reminded about due dates and events |
+| **Community Rooms** | Join virtual study rooms with peers |
+| **Dark Mode** | Light/dark/system theme with full support |
+| **Mobile First** | Responsive design with bottom navigation |
+| **Real-time Sync** | Firebase-powered data sync across devices |
 
 ## Tech Stack
 
@@ -89,22 +103,27 @@ npm run dev
 ```
 src/
 ├── components/
-│   ├── auth/           # Authentication components
-│   ├── common/         # Shared UI components (ErrorBoundary, FileDropZone)
-│   ├── community/      # Community features
-│   ├── dashboard/      # Dashboard widgets
-│   └── layout/         # Layout components (DashboardLayout, SplashScreen)
+│   ├── auth/              # Authentication components
+│   ├── common/            # Shared UI (Modal, EmptyState, ErrorBoundary)
+│   ├── community/         # Community features
+│   ├── dashboard/         # Dashboard widgets
+│   ├── forms/             # Form components (AssessmentForm)
+│   └── layout/            # Layout (DashboardLayout, SplashScreen)
 ├── context/
-│   ├── AuthContext.tsx # Firebase auth state
-│   └── ThemeContext.tsx# Theme management
+│   ├── AuthContext.tsx    # Firebase auth state
+│   └── ThemeContext.tsx   # Theme management
+├── hooks/
+│   ├── useUserData.ts     # User data fetching & mutations
+│   └── useNotifications.ts # Web notifications
 ├── lib/
-│   ├── ai/             # AI integrations (Groq, OCR)
-│   ├── dataService.ts  # Firestore CRUD operations
-│   ├── firebaseClient.ts # Firebase initialization
-│   └── srs/            # Spaced repetition logic
-├── pages/              # Route pages
-├── state/              # Zustand stores
-└── types.ts            # TypeScript definitions
+│   ├── ai/                # AI integrations (Groq, OCR)
+│   ├── dataService.ts     # Firestore CRUD operations
+│   ├── firebaseClient.ts  # Firebase initialization
+│   ├── notificationService.ts # Web push notifications
+│   └── srs/               # Spaced repetition logic
+├── pages/                 # Route pages
+├── state/                 # Zustand stores (sessionStore)
+└── types.ts               # TypeScript definitions
 ```
 
 ## Available Scripts
