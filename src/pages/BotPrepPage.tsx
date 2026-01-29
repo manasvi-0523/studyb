@@ -1,13 +1,13 @@
 import { DashboardLayout } from "../components/layout/DashboardLayout";
-import { Sparkles, Search, MessageSquare, Brain, FileText, ChevronRight, X, Check, RefreshCw, Loader2, Send, Bot, Upload } from "lucide-react";
+import { Sparkles, Search, MessageSquare, Brain, FileText, ChevronRight, X, Check, RefreshCw, Loader2, Send, Bot, Upload, Link, Globe, Clock, Zap } from "lucide-react";
 import { useState, useRef } from "react";
-import { generateQuiz, generateFlashcards, generateMindMap, type MindMapNode, type MindMapResponse } from "../lib/ai/groqClient";
+import { generateQuiz, generateFlashcards, generateMindMap, generateFromURL, chat, type MindMapNode, type MindMapResponse, type GenerationResult } from "../lib/ai/groqClient";
 import { extractTextFromFile } from "../lib/fileUtils";
 import { saveFlashcardsBatch, saveQuizQuestionsBatch } from "../lib/dataService";
 import { getCurrentUser } from "../lib/firebaseClient";
 import type { DrillQuestion, Flashcard, SubjectKey } from "../types";
 
-type GenerationMode = "idle" | "quiz" | "flashcards" | "mindmap";
+type GenerationMode = "idle" | "quiz" | "flashcards" | "mindmap" | "url-quiz" | "url-flashcards";
 type ViewMode = "input" | "quiz-results" | "flashcard-results" | "mindmap-results";
 
 interface ChatMessage {
@@ -24,6 +24,13 @@ export function BotPrepPage() {
     const [viewMode, setViewMode] = useState<ViewMode>("input");
     const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // New features state
+    const [urlInput, setUrlInput] = useState("");
+    const [useWebSearch, setUseWebSearch] = useState(false);
+    const [executionTime, setExecutionTime] = useState<number | null>(null);
+    const [tokensUsed, setTokensUsed] = useState<number | null>(null);
+    const [generationSource, setGenerationSource] = useState<string | null>(null);
 
     // Results state
     const [quizQuestions, setQuizQuestions] = useState<DrillQuestion[]>([]);
@@ -52,21 +59,33 @@ export function BotPrepPage() {
     const [faqSearch, setFaqSearch] = useState("");
 
     const handleGenerate = async (mode: GenerationMode) => {
-        if (!prompt.trim()) {
+        // For URL modes, check URL input
+        if (mode === "url-quiz" || mode === "url-flashcards") {
+            if (!urlInput.trim()) {
+                setError("Please enter a URL to generate content from.");
+                return;
+            }
+        } else if (!prompt.trim()) {
             setError("Please enter some study material first.");
             return;
         }
 
         setIsLoading(true);
         setError(null);
+        setExecutionTime(null);
+        setTokensUsed(null);
+        setGenerationSource(null);
 
         try {
             const user = getCurrentUser();
 
             switch (mode) {
-                case "quiz":
-                    const questions = await generateQuiz(prompt, subject, 5);
-                    setQuizQuestions(questions);
+                case "quiz": {
+                    const result = await generateQuiz(prompt, subject, 5, useWebSearch);
+                    setQuizQuestions(result.data);
+                    setExecutionTime(result.executionTime);
+                    setTokensUsed(result.tokensUsed || null);
+                    setGenerationSource(result.source || "AI");
                     setCurrentQuestionIndex(0);
                     setSelectedAnswers({});
                     setShowExplanation(false);
@@ -74,26 +93,66 @@ export function BotPrepPage() {
 
                     // Save to Firebase
                     if (user) {
-                        await saveQuizQuestionsBatch(user.uid, questions);
+                        await saveQuizQuestionsBatch(user.uid, result.data);
                     }
                     break;
-                case "flashcards":
-                    const cards = await generateFlashcards(prompt, subject, 10);
-                    setFlashcards(cards);
+                }
+                case "flashcards": {
+                    const result = await generateFlashcards(prompt, subject, 10, useWebSearch);
+                    setFlashcards(result.data);
+                    setExecutionTime(result.executionTime);
+                    setTokensUsed(result.tokensUsed || null);
+                    setGenerationSource(result.source || "AI");
                     setCurrentCardIndex(0);
                     setIsFlipped(false);
                     setViewMode("flashcard-results");
 
                     // Save to Firebase
                     if (user) {
-                        await saveFlashcardsBatch(user.uid, cards);
+                        await saveFlashcardsBatch(user.uid, result.data);
                     }
                     break;
-                case "mindmap":
-                    const map = await generateMindMap(prompt, subject);
-                    setMindMap(map);
+                }
+                case "mindmap": {
+                    const result = await generateMindMap(prompt, subject);
+                    setMindMap(result.data);
+                    setExecutionTime(result.executionTime);
+                    setTokensUsed(result.tokensUsed || null);
+                    setGenerationSource(result.source || "AI");
                     setViewMode("mindmap-results");
                     break;
+                }
+                case "url-quiz": {
+                    const result = await generateFromURL(urlInput, subject, "quiz");
+                    setQuizQuestions(result.data as DrillQuestion[]);
+                    setExecutionTime(result.executionTime);
+                    setTokensUsed(result.tokensUsed || null);
+                    setGenerationSource(result.source || `URL: ${urlInput}`);
+                    setCurrentQuestionIndex(0);
+                    setSelectedAnswers({});
+                    setShowExplanation(false);
+                    setViewMode("quiz-results");
+
+                    if (user) {
+                        await saveQuizQuestionsBatch(user.uid, result.data as DrillQuestion[]);
+                    }
+                    break;
+                }
+                case "url-flashcards": {
+                    const result = await generateFromURL(urlInput, subject, "flashcards");
+                    setFlashcards(result.data as Flashcard[]);
+                    setExecutionTime(result.executionTime);
+                    setTokensUsed(result.tokensUsed || null);
+                    setGenerationSource(result.source || `URL: ${urlInput}`);
+                    setCurrentCardIndex(0);
+                    setIsFlipped(false);
+                    setViewMode("flashcard-results");
+
+                    if (user) {
+                        await saveFlashcardsBatch(user.uid, result.data as Flashcard[]);
+                    }
+                    break;
+                }
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to generate content. Please try again.");
@@ -105,6 +164,9 @@ export function BotPrepPage() {
     const resetToInput = () => {
         setViewMode("input");
         setError(null);
+        setExecutionTime(null);
+        setTokensUsed(null);
+        setGenerationSource(null);
     };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,7 +188,7 @@ export function BotPrepPage() {
         }
     };
 
-    // AI Chat handler
+    // AI Chat handler - uses real Groq API with web search
     const handleSendChat = async () => {
         if (!chatInput.trim() || isChatLoading) return;
 
@@ -140,25 +202,41 @@ export function BotPrepPage() {
         setChatInput("");
         setIsChatLoading(true);
 
-        // Simulate AI response (in production, use Groq API)
-        setTimeout(() => {
-            const responses = [
-                "I understand your concern. For late submissions, you can apply through the student portal under 'Academic Requests'. The deadline for appeals is typically 48 hours after the original due date.",
-                "Great question! The VC-V3 lab is located in the Engineering Block, 3rd floor, Room 312. It's open from 9 AM to 6 PM on weekdays.",
-                "Based on your current study patterns, I recommend focusing on Physics first as it has the highest weightage in your upcoming exams. Try the Pomodoro technique - 25 minutes of focused study followed by 5-minute breaks.",
-                "I can see you're making good progress! To maintain your 92% attendance, make sure to attend the next 3 classes. Missing them would drop you to 82.3%.",
-                "For the academic calendar 2026, you can download the PDF from the official college portal under 'Resources > Academic Documents'. Shall I explain any specific dates?"
+        try {
+            // Build conversation history for context
+            const messages = [
+                {
+                    role: "system" as const,
+                    content: "You are an AI Mentor for students. Help with academic guidance, study strategies, administrative queries about college/university processes, and general educational support. Be helpful, concise, and encouraging. If asked about specific college policies or locations you don't know about, suggest the student check their official college portal or contact the administration."
+                },
+                ...chatMessages.map(msg => ({
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content
+                })),
+                { role: "user" as const, content: chatInput.trim() }
             ];
+
+            // Use Groq chat with optional web search for current info
+            const result = await chat(messages, true); // Enable web search for up-to-date info
 
             const assistantMessage: ChatMessage = {
                 id: crypto.randomUUID(),
                 role: "assistant",
-                content: responses[Math.floor(Math.random() * responses.length)]
+                content: result.data
             };
 
             setChatMessages(prev => [...prev, assistantMessage]);
+        } catch (err) {
+            // Fallback to a helpful error message
+            const errorMessage: ChatMessage = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "I apologize, but I'm having trouble connecting right now. Please try again in a moment, or contact your college administration directly for urgent queries."
+            };
+            setChatMessages(prev => [...prev, errorMessage]);
+        } finally {
             setIsChatLoading(false);
-        }, 1500);
+        }
     };
 
     // FAQ data with answers
@@ -198,6 +276,10 @@ export function BotPrepPage() {
                             fileInputRef={fileInputRef}
                             onFileUpload={handleFileUpload}
                             uploadedFileName={uploadedFileName}
+                            urlInput={urlInput}
+                            setUrlInput={setUrlInput}
+                            useWebSearch={useWebSearch}
+                            setUseWebSearch={setUseWebSearch}
                         />
                     )}
 
@@ -211,6 +293,9 @@ export function BotPrepPage() {
                             showExplanation={showExplanation}
                             setShowExplanation={setShowExplanation}
                             onBack={resetToInput}
+                            executionTime={executionTime}
+                            tokensUsed={tokensUsed}
+                            generationSource={generationSource}
                         />
                     )}
 
@@ -222,6 +307,9 @@ export function BotPrepPage() {
                             isFlipped={isFlipped}
                             setIsFlipped={setIsFlipped}
                             onBack={resetToInput}
+                            executionTime={executionTime}
+                            tokensUsed={tokensUsed}
+                            generationSource={generationSource}
                         />
                     )}
 
@@ -229,6 +317,9 @@ export function BotPrepPage() {
                         <MindMapView
                             mindMap={mindMap}
                             onBack={resetToInput}
+                            executionTime={executionTime}
+                            tokensUsed={tokensUsed}
+                            generationSource={generationSource}
                         />
                     )}
 
@@ -420,7 +511,11 @@ function InputView({
     onGenerate,
     fileInputRef,
     onFileUpload,
-    uploadedFileName
+    uploadedFileName,
+    urlInput,
+    setUrlInput,
+    useWebSearch,
+    setUseWebSearch
 }: {
     prompt: string;
     setPrompt: (v: string) => void;
@@ -432,19 +527,25 @@ function InputView({
     fileInputRef: React.RefObject<HTMLInputElement>;
     onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
     uploadedFileName: string | null;
+    urlInput: string;
+    setUrlInput: (v: string) => void;
+    useWebSearch: boolean;
+    setUseWebSearch: (v: boolean) => void;
 }) {
+    const [inputMode, setInputMode] = useState<"text" | "url">("text");
+
     return (
-        <div className="glass-card p-10 bg-white/60 border-gold/10 relative overflow-hidden">
+        <div className="glass-card p-10 bg-white/60 dark:bg-charcoal/60 border-gold/10 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 text-gold/10">
                 <Sparkles size={120} />
             </div>
 
             <div className="relative z-10">
-                <h3 className="font-playfair text-3xl text-charcoal mb-2">Study Bot Suite</h3>
-                <p className="text-sm text-charcoal/40 mb-6">Refine your study material into cognitive assets.</p>
+                <h3 className="font-playfair text-3xl text-charcoal dark:text-white mb-2">Study Bot Suite</h3>
+                <p className="text-sm text-charcoal/40 dark:text-white/40 mb-6">Refine your study material into cognitive assets.</p>
 
                 {error && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-600">
+                    <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl text-sm text-red-600 dark:text-red-400">
                         {error}
                     </div>
                 )}
@@ -457,8 +558,8 @@ function InputView({
                                 key={s}
                                 onClick={() => setSubject(s)}
                                 className={`px-4 py-2 rounded-full text-xs font-medium transition-all capitalize ${subject === s
-                                    ? "bg-charcoal text-white"
-                                    : "bg-charcoal/5 text-charcoal/60 hover:bg-charcoal/10"
+                                    ? "bg-charcoal dark:bg-gold text-white"
+                                    : "bg-charcoal/5 dark:bg-white/10 text-charcoal/60 dark:text-white/60 hover:bg-charcoal/10 dark:hover:bg-white/20"
                                     }`}
                             >
                                 {s}
@@ -466,70 +567,179 @@ function InputView({
                         ))}
                     </div>
 
-                    <div className="space-y-3">
-                        <div className="flex gap-3">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".pdf,.txt,.jpg,.jpeg,.png,image/*,text/*"
-                                onChange={onFileUpload}
-                                className="hidden"
-                            />
+                    {/* Input Mode Toggle */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex bg-charcoal/5 dark:bg-white/10 rounded-full p-1">
                             <button
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isLoading}
-                                className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium bg-charcoal/5 text-charcoal/60 hover:bg-charcoal/10 transition-all disabled:opacity-50"
+                                onClick={() => setInputMode("text")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${inputMode === "text"
+                                    ? "bg-white dark:bg-charcoal text-charcoal dark:text-white shadow-sm"
+                                    : "text-charcoal/60 dark:text-white/60"
+                                    }`}
                             >
-                                <Upload size={14} />
-                                Upload File
+                                <FileText size={14} />
+                                Text/File
                             </button>
-                            {uploadedFileName && (
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs bg-sage/20 text-sage">
-                                    <Check size={14} />
-                                    {uploadedFileName}
-                                </div>
-                            )}
+                            <button
+                                onClick={() => setInputMode("url")}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${inputMode === "url"
+                                    ? "bg-white dark:bg-charcoal text-charcoal dark:text-white shadow-sm"
+                                    : "text-charcoal/60 dark:text-white/60"
+                                    }`}
+                            >
+                                <Link size={14} />
+                                URL
+                            </button>
                         </div>
 
-                        <div className="relative">
-                            <textarea
-                                value={prompt}
-                                onChange={(e) => setPrompt(e.target.value)}
-                                placeholder="Paste your lecture notes or topic here, or upload a file..."
-                                className="w-full h-48 bg-background/50 border border-charcoal/5 rounded-3xl p-6 text-sm focus:outline-none focus:border-gold/40 transition-all resize-none font-inter"
-                                disabled={isLoading}
-                            />
-                            <div className="absolute bottom-4 right-4 text-[10px] text-charcoal/30 font-bold uppercase tracking-widest">
-                                AI Processor v2.0
+                        {/* Web Search Toggle (only for text mode) */}
+                        {inputMode === "text" && (
+                            <button
+                                onClick={() => setUseWebSearch(!useWebSearch)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${useWebSearch
+                                    ? "bg-gold/20 text-gold border border-gold/40"
+                                    : "bg-charcoal/5 dark:bg-white/10 text-charcoal/60 dark:text-white/60 hover:bg-charcoal/10 dark:hover:bg-white/20"
+                                    }`}
+                            >
+                                <Globe size={14} />
+                                Web Search {useWebSearch ? "ON" : "OFF"}
+                            </button>
+                        )}
+                    </div>
+
+                    {inputMode === "text" ? (
+                        <div className="space-y-3">
+                            <div className="flex gap-3 flex-wrap">
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".pdf,.txt,.jpg,.jpeg,.png,image/*,text/*"
+                                    onChange={onFileUpload}
+                                    className="hidden"
+                                />
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium bg-charcoal/5 dark:bg-white/10 text-charcoal/60 dark:text-white/60 hover:bg-charcoal/10 dark:hover:bg-white/20 transition-all disabled:opacity-50"
+                                >
+                                    <Upload size={14} />
+                                    Upload File
+                                </button>
+                                {uploadedFileName && (
+                                    <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs bg-sage/20 text-sage">
+                                        <Check size={14} />
+                                        {uploadedFileName}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <textarea
+                                    value={prompt}
+                                    onChange={(e) => setPrompt(e.target.value)}
+                                    placeholder="Paste your lecture notes or topic here, or upload a file..."
+                                    className="w-full h-48 bg-background/50 dark:bg-white/5 border border-charcoal/5 dark:border-white/10 rounded-3xl p-6 text-sm text-charcoal dark:text-white focus:outline-none focus:border-gold/40 transition-all resize-none font-inter"
+                                    disabled={isLoading}
+                                />
+                                <div className="absolute bottom-4 right-4 text-[10px] text-charcoal/30 dark:text-white/30 font-bold uppercase tracking-widest">
+                                    {useWebSearch ? "AI + Web Search" : "AI Processor v3.0"}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <div className="relative">
+                                <Link className="absolute left-4 top-1/2 -translate-y-1/2 text-charcoal/30 dark:text-white/30" size={18} />
+                                <input
+                                    type="url"
+                                    value={urlInput}
+                                    onChange={(e) => setUrlInput(e.target.value)}
+                                    placeholder="Enter a URL to extract content from (e.g., Wikipedia, educational sites)"
+                                    className="w-full h-14 bg-background/50 dark:bg-white/5 border border-charcoal/5 dark:border-white/10 rounded-2xl pl-12 pr-6 text-sm text-charcoal dark:text-white focus:outline-none focus:border-gold/40 transition-all font-inter"
+                                    disabled={isLoading}
+                                />
+                            </div>
+                            <p className="text-xs text-charcoal/40 dark:text-white/40">
+                                <Zap size={12} className="inline mr-1" />
+                                Extracts educational content from web pages and generates study materials
+                            </p>
+                        </div>
+                    )}
 
-                    <div className="grid grid-cols-3 gap-4">
-                        <BotAction
-                            icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <Brain size={18} />}
-                            label="Gen Quiz"
-                            color="bg-sage text-white"
-                            onClick={() => onGenerate("quiz")}
-                            disabled={isLoading}
-                        />
-                        <BotAction
-                            icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
-                            label="Flashcards"
-                            color="bg-gold text-white"
-                            onClick={() => onGenerate("flashcards")}
-                            disabled={isLoading}
-                        />
-                        <BotAction
-                            icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}
-                            label="Mind Map"
-                            color="bg-charcoal text-white"
-                            onClick={() => onGenerate("mindmap")}
-                            disabled={isLoading}
-                        />
-                    </div>
+                    {/* Generation Buttons */}
+                    {inputMode === "text" ? (
+                        <div className="grid grid-cols-3 gap-4">
+                            <BotAction
+                                icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <Brain size={18} />}
+                                label="Gen Quiz"
+                                color="bg-sage text-white"
+                                onClick={() => onGenerate("quiz")}
+                                disabled={isLoading}
+                            />
+                            <BotAction
+                                icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                                label="Flashcards"
+                                color="bg-gold text-white"
+                                onClick={() => onGenerate("flashcards")}
+                                disabled={isLoading}
+                            />
+                            <BotAction
+                                icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}
+                                label="Mind Map"
+                                color="bg-charcoal text-white"
+                                onClick={() => onGenerate("mindmap")}
+                                disabled={isLoading}
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4">
+                            <BotAction
+                                icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <Brain size={18} />}
+                                label="Quiz from URL"
+                                color="bg-sage text-white"
+                                onClick={() => onGenerate("url-quiz")}
+                                disabled={isLoading || !urlInput.trim()}
+                            />
+                            <BotAction
+                                icon={isLoading ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                                label="Cards from URL"
+                                color="bg-gold text-white"
+                                onClick={() => onGenerate("url-flashcards")}
+                                disabled={isLoading || !urlInput.trim()}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+// Execution Stats Component
+function ExecutionStats({ executionTime, tokensUsed, source }: {
+    executionTime: number | null;
+    tokensUsed: number | null;
+    source: string | null;
+}) {
+    if (!executionTime) return null;
+
+    return (
+        <div className="flex items-center gap-4 text-xs text-charcoal/40 dark:text-white/40 mb-4">
+            <span className="flex items-center gap-1">
+                <Clock size={12} />
+                {(executionTime / 1000).toFixed(2)}s
+            </span>
+            {tokensUsed && (
+                <span className="flex items-center gap-1">
+                    <Zap size={12} />
+                    {tokensUsed.toLocaleString()} tokens
+                </span>
+            )}
+            {source && (
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-gold/10 rounded-full text-gold">
+                    {source}
+                </span>
+            )}
         </div>
     );
 }
@@ -543,7 +753,10 @@ function QuizView({
     setSelectedAnswers,
     showExplanation,
     setShowExplanation,
-    onBack
+    onBack,
+    executionTime,
+    tokensUsed,
+    generationSource
 }: {
     questions: DrillQuestion[];
     currentIndex: number;
@@ -553,6 +766,9 @@ function QuizView({
     showExplanation: boolean;
     setShowExplanation: (v: boolean) => void;
     onBack: () => void;
+    executionTime: number | null;
+    tokensUsed: number | null;
+    generationSource: string | null;
 }) {
     const currentQuestion = questions[currentIndex];
     const isAnswered = selectedAnswers[currentQuestion?.id] !== undefined;
@@ -583,18 +799,20 @@ function QuizView({
     }
 
     return (
-        <div className="glass-card p-10 bg-white/60 border-gold/10 relative overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
-                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 hover:text-charcoal transition-colors">
+        <div className="glass-card p-10 bg-white/60 dark:bg-charcoal/60 border-gold/10 relative overflow-hidden">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 dark:text-white/60 hover:text-charcoal dark:hover:text-white transition-colors">
                     <X size={18} /> Back
                 </button>
-                <span className="text-sm font-medium text-charcoal/60">
+                <span className="text-sm font-medium text-charcoal/60 dark:text-white/60">
                     Question {currentIndex + 1} of {questions.length}
                 </span>
             </div>
 
+            <ExecutionStats executionTime={executionTime} tokensUsed={tokensUsed} source={generationSource} />
+
             <div className="mb-8">
-                <h3 className="font-playfair text-xl text-charcoal mb-6">{currentQuestion.question}</h3>
+                <h3 className="font-playfair text-xl text-charcoal dark:text-white mb-6">{currentQuestion.question}</h3>
 
                 <div className="space-y-3">
                     {currentQuestion.options.map((option) => {
@@ -679,7 +897,10 @@ function FlashcardView({
     setCurrentIndex,
     isFlipped,
     setIsFlipped,
-    onBack
+    onBack,
+    executionTime,
+    tokensUsed,
+    generationSource
 }: {
     flashcards: Flashcard[];
     currentIndex: number;
@@ -687,6 +908,9 @@ function FlashcardView({
     isFlipped: boolean;
     setIsFlipped: (v: boolean) => void;
     onBack: () => void;
+    executionTime: number | null;
+    tokensUsed: number | null;
+    generationSource: string | null;
 }) {
     const currentCard = flashcards[currentIndex];
 
@@ -700,20 +924,22 @@ function FlashcardView({
     }
 
     return (
-        <div className="glass-card p-10 bg-white/60 border-gold/10">
-            <div className="flex justify-between items-center mb-6">
-                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 hover:text-charcoal transition-colors">
+        <div className="glass-card p-10 bg-white/60 dark:bg-charcoal/60 border-gold/10">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 dark:text-white/60 hover:text-charcoal dark:hover:text-white transition-colors">
                     <X size={18} /> Back
                 </button>
-                <span className="text-sm font-medium text-charcoal/60">
+                <span className="text-sm font-medium text-charcoal/60 dark:text-white/60">
                     Card {currentIndex + 1} of {flashcards.length}
                 </span>
             </div>
 
+            <ExecutionStats executionTime={executionTime} tokensUsed={tokensUsed} source={generationSource} />
+
             {/* Flashcard */}
             <div
                 onClick={() => setIsFlipped(!isFlipped)}
-                className="min-h-[280px] bg-gradient-to-br from-gold/10 to-sage/10 rounded-3xl p-8 flex items-center justify-center cursor-pointer hover:shadow-lg transition-all relative overflow-hidden group"
+                className="min-h-[280px] bg-gradient-to-br from-gold/10 to-sage/10 dark:from-gold/20 dark:to-sage/20 rounded-3xl p-8 flex items-center justify-center cursor-pointer hover:shadow-lg transition-all relative overflow-hidden group"
             >
                 <div className="absolute top-4 right-4 text-[10px] text-charcoal/30 uppercase tracking-widest font-bold">
                     {isFlipped ? "Answer" : "Question"} • Click to flip
@@ -761,20 +987,28 @@ function FlashcardView({
 // Mind Map View Component
 function MindMapView({
     mindMap,
-    onBack
+    onBack,
+    executionTime,
+    tokensUsed,
+    generationSource
 }: {
     mindMap: MindMapResponse;
     onBack: () => void;
+    executionTime: number | null;
+    tokensUsed: number | null;
+    generationSource: string | null;
 }) {
     return (
-        <div className="glass-card p-10 bg-white/60 border-gold/10">
-            <div className="flex justify-between items-center mb-6">
-                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 hover:text-charcoal transition-colors">
+        <div className="glass-card p-10 bg-white/60 dark:bg-charcoal/60 border-gold/10">
+            <div className="flex justify-between items-center mb-4">
+                <button onClick={onBack} className="flex items-center gap-2 text-charcoal/60 dark:text-white/60 hover:text-charcoal dark:hover:text-white transition-colors">
                     <X size={18} /> Back
                 </button>
             </div>
 
-            <h3 className="font-playfair text-2xl text-charcoal mb-6 text-center">{mindMap.title}</h3>
+            <ExecutionStats executionTime={executionTime} tokensUsed={tokensUsed} source={generationSource} />
+
+            <h3 className="font-playfair text-2xl text-charcoal dark:text-white mb-6 text-center">{mindMap.title}</h3>
 
             <div className="space-y-4">
                 {mindMap.nodes.map((node) => (
