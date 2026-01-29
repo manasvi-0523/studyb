@@ -1,250 +1,386 @@
 import { useState } from "react";
 import { DashboardLayout } from "../components/layout/DashboardLayout";
-import { AttendancePulse } from "../components/dashboard/AttendancePulse";
-import { PriorityMatrix } from "../components/dashboard/PriorityMatrix";
-import { AnalyticalCorner } from "../components/dashboard/AnalyticalCorner";
-import { X, ExternalLink, Calendar, Users, ArrowRight } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useUserData } from "../hooks/useUserData";
+import { useSessionStore } from "../state/sessionStore";
+import { Modal } from "../components/common/Modal";
+import { EmptyState } from "../components/common/EmptyState";
+import { AssessmentForm } from "../components/forms/AssessmentForm";
+import {
+    Plus,
+    Clock,
+    BookOpen,
+    CheckCircle,
+    AlertCircle,
+    Trash2,
+    Edit2,
+    Play,
+    Square,
+    Loader2,
+    Calendar,
+    Target,
+    TrendingUp
+} from "lucide-react";
+import { format, formatDistanceToNow, isPast, isToday } from "date-fns";
+import type { Assessment } from "../lib/dataService";
+import type { SubjectKey } from "../types";
 
-interface CommunityEvent {
-    id: string;
-    title: string;
-    type: string;
-    date: string;
-    color: string;
-}
+const SUBJECT_COLORS: Record<SubjectKey, string> = {
+    biology: "bg-green-500",
+    physics: "bg-blue-500",
+    chemistry: "bg-purple-500",
+    maths: "bg-orange-500",
+    other: "bg-gray-500"
+};
+
+const SUBJECT_LABELS: Record<SubjectKey, string> = {
+    biology: "Biology",
+    physics: "Physics",
+    chemistry: "Chemistry",
+    maths: "Mathematics",
+    other: "Other"
+};
 
 export function DashboardPage() {
-    const navigate = useNavigate();
-    const [showEventModal, setShowEventModal] = useState<CommunityEvent | null>(null);
+    const {
+        assessments,
+        stats,
+        isLoading,
+        addAssessment,
+        editAssessment,
+        removeAssessment
+    } = useUserData();
 
-    const communityEvents: CommunityEvent[] = [
-        { id: "1", title: "Designathon 2026", type: "Hackathon", date: "Feb 15", color: "sage" },
-        { id: "2", title: "AI Seminar - Alumni Help", type: "Seminar", date: "Feb 20", color: "gold" }
-    ];
+    const { isGrinding, activeSubject, startGrind, stopGrind, sessions } = useSessionStore();
 
-    const [registeredEvents, setRegisteredEvents] = useState<string[]>([]);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedSubject, setSelectedSubject] = useState<SubjectKey | null>(null);
 
-    const handleRegister = (eventId: string) => {
-        if (registeredEvents.includes(eventId)) {
-            setRegisteredEvents(registeredEvents.filter(id => id !== eventId));
-        } else {
-            setRegisteredEvents([...registeredEvents, eventId]);
+    const handleAddAssessment = async (data: Omit<Assessment, "id" | "createdAt" | "updatedAt">) => {
+        setIsSubmitting(true);
+        try {
+            await addAssessment(data);
+            setShowAddModal(false);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
+    const handleEditAssessment = async (data: Omit<Assessment, "id" | "createdAt" | "updatedAt">) => {
+        if (!editingAssessment) return;
+        setIsSubmitting(true);
+        try {
+            await editAssessment(editingAssessment.id, data);
+            setEditingAssessment(null);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleStartStudy = (subject: SubjectKey) => {
+        startGrind(subject);
+        setSelectedSubject(subject);
+    };
+
+    const handleStopStudy = () => {
+        stopGrind();
+        setSelectedSubject(null);
+    };
+
+    const pendingAssessments = assessments.filter(a => a.status !== "completed");
+    const completedCount = assessments.filter(a => a.status === "completed").length;
+    const overallProgress = assessments.length > 0
+        ? Math.round(assessments.reduce((sum, a) => sum + a.progress, 0) / assessments.length)
+        : 0;
+
+    const totalStudyMinutes = stats?.totalMinutes || sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
+    const studyHours = Math.floor(totalStudyMinutes / 60);
+    const studyMinutes = totalStudyMinutes % 60;
+
     return (
         <DashboardLayout>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Attendance Pulse - Highlighted Column */}
-                <div className="lg:col-span-1">
-                    <AttendancePulse />
-                </div>
-
-                {/* Analytical Corner */}
-                <div className="lg:col-span-1">
-                    <AnalyticalCorner />
-                </div>
-
-                {/* Priority Matrix */}
-                <div className="lg:col-span-1">
-                    <PriorityMatrix />
-                </div>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    icon={<Clock size={20} className="text-gold" />}
+                    label="Study Time"
+                    value={`${studyHours}h ${studyMinutes}m`}
+                    subtext="This month"
+                />
+                <StatCard
+                    icon={<BookOpen size={20} className="text-sage" />}
+                    label="Flashcards"
+                    value={String(stats?.totalFlashcards || 0)}
+                    subtext="Created"
+                />
+                <StatCard
+                    icon={<CheckCircle size={20} className="text-green-500" />}
+                    label="Completed"
+                    value={String(completedCount)}
+                    subtext="Assessments"
+                />
+                <StatCard
+                    icon={<Target size={20} className="text-purple-500" />}
+                    label="Progress"
+                    value={`${overallProgress}%`}
+                    subtext="Overall"
+                />
             </div>
 
-            {/* Bottom Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Assessment Tracker */}
-                <div className="glass-card p-8 bg-white/40 border-charcoal/5">
-                    <div className="flex justify-between items-start mb-4">
-                        <h3 className="font-playfair text-xl text-charcoal">Assessment Tracker</h3>
-                        <button
-                            onClick={() => navigate("/timeline")}
-                            className="text-[10px] font-bold text-gold hover:text-charcoal transition-colors uppercase tracking-wider flex items-center gap-1"
-                        >
-                            View All <ArrowRight size={12} />
-                        </button>
-                    </div>
-                    <div className="flex flex-col gap-4">
-                        <div className="space-y-3">
-                            <AssessmentItem
-                                title="Physics Lab Report"
-                                dueDate="Jan 30"
-                                status="pending"
-                                progress={65}
-                            />
-                            <AssessmentItem
-                                title="Math Assignment 3"
-                                dueDate="Feb 2"
-                                status="in-progress"
-                                progress={40}
-                            />
-                            <AssessmentItem
-                                title="Chemistry Quiz Prep"
-                                dueDate="Feb 5"
-                                status="not-started"
-                                progress={0}
-                            />
-                        </div>
-                        <div className="pt-4 border-t border-charcoal/5">
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-charcoal/40">Overall Progress</span>
-                                <span className="font-bold text-charcoal">35%</span>
-                            </div>
-                            <div className="h-2 w-full bg-charcoal/5 rounded-full overflow-hidden mt-2">
-                                <div className="h-full bg-sage rounded-full transition-all duration-500" style={{ width: "35%" }} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Study Session */}
+                <div className="glass-card p-6 bg-white/40">
+                    <h3 className="font-playfair text-xl text-charcoal dark:text-white mb-4">Quick Study</h3>
 
-                {/* Community Opportunities */}
-                <div className="glass-card p-8 bg-white/40 border-charcoal/5">
-                    <div className="flex justify-between items-start mb-4">
-                        <h3 className="font-playfair text-xl text-charcoal">Community Opportunities</h3>
-                        <button
-                            onClick={() => navigate("/community")}
-                            className="text-[10px] font-bold text-gold hover:text-charcoal transition-colors uppercase tracking-wider flex items-center gap-1"
-                        >
-                            Explore <ArrowRight size={12} />
-                        </button>
-                    </div>
-                    <div className="space-y-4">
-                        {communityEvents.map(event => {
-                            const isRegistered = registeredEvents.includes(event.id);
-                            return (
-                                <div
-                                    key={event.id}
-                                    className={`flex justify-between items-center p-4 rounded-xl bg-${event.color}/5 border border-${event.color}/10 hover:bg-${event.color}/10 transition-all cursor-pointer group`}
-                                    onClick={() => setShowEventModal(event)}
+                    {isGrinding ? (
+                        <div className="text-center py-6">
+                            <div className="w-20 h-20 mx-auto rounded-full bg-sage/20 flex items-center justify-center mb-4">
+                                <div className="w-12 h-12 rounded-full bg-sage animate-pulse" />
+                            </div>
+                            <p className="text-sm text-charcoal/60 dark:text-white/60 mb-2">
+                                Studying {SUBJECT_LABELS[activeSubject!]}
+                            </p>
+                            <p className="text-2xl font-bold text-charcoal dark:text-white mb-4">
+                                In Progress...
+                            </p>
+                            <button
+                                onClick={handleStopStudy}
+                                className="flex items-center gap-2 mx-auto px-6 py-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                            >
+                                <Square size={18} />
+                                Stop Session
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            <p className="text-sm text-charcoal/60 dark:text-white/60 mb-4">
+                                Start a study session to track your time
+                            </p>
+                            {(["biology", "physics", "chemistry", "maths", "other"] as SubjectKey[]).map((subject) => (
+                                <button
+                                    key={subject}
+                                    onClick={() => handleStartStudy(subject)}
+                                    className="w-full flex items-center justify-between p-3 rounded-xl bg-charcoal/5 dark:bg-white/5 hover:bg-charcoal/10 dark:hover:bg-white/10 transition-colors"
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-xl bg-${event.color}/20 flex items-center justify-center`}>
-                                            {event.type === "Hackathon" ? <Calendar size={18} className={`text-${event.color}`} /> : <Users size={18} className={`text-${event.color}`} />}
-                                        </div>
-                                        <div>
-                                            <span className="text-sm font-medium text-charcoal">{event.title}</span>
-                                            <p className="text-[10px] text-charcoal/40">{event.date}</p>
-                                        </div>
+                                        <div className={`w-3 h-3 rounded-full ${SUBJECT_COLORS[subject]}`} />
+                                        <span className="text-sm font-medium">{SUBJECT_LABELS[subject]}</span>
                                     </div>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleRegister(event.id);
-                                        }}
-                                        className={`text-[10px] font-bold px-3 py-1.5 rounded-full transition-all ${isRegistered
-                                                ? `bg-${event.color}/20 text-${event.color}`
-                                                : `text-${event.color} hover:bg-${event.color}/10`
-                                            }`}
-                                    >
-                                        {isRegistered ? "Registered ✓" : event.type === "Hackathon" ? "Join Room" : "Register"}
-                                    </button>
-                                </div>
-                            );
-                        })}
+                                    <Play size={16} className="text-charcoal/40" />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Assessments */}
+                <div className="lg:col-span-2 glass-card p-6 bg-white/40">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-playfair text-xl text-charcoal dark:text-white">Assessments</h3>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="flex items-center gap-2 text-xs font-bold text-gold hover:text-charcoal transition-colors uppercase tracking-wider"
+                        >
+                            <Plus size={16} />
+                            Add New
+                        </button>
                     </div>
+
+                    {isLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 size={32} className="animate-spin text-gold" />
+                        </div>
+                    ) : pendingAssessments.length === 0 ? (
+                        <EmptyState
+                            icon={<BookOpen size={24} className="text-charcoal/40" />}
+                            title="No assessments yet"
+                            description="Add your assignments, projects, and exams to track your progress"
+                            actionLabel="Add Assessment"
+                            onAction={() => setShowAddModal(true)}
+                        />
+                    ) : (
+                        <div className="space-y-3">
+                            {pendingAssessments.slice(0, 5).map((assessment) => (
+                                <AssessmentItem
+                                    key={assessment.id}
+                                    assessment={assessment}
+                                    onEdit={() => setEditingAssessment(assessment)}
+                                    onDelete={() => removeAssessment(assessment.id)}
+                                    onStatusChange={(status) => editAssessment(assessment.id, { status })}
+                                />
+                            ))}
+                            {pendingAssessments.length > 5 && (
+                                <p className="text-xs text-charcoal/40 text-center pt-2">
+                                    +{pendingAssessments.length - 5} more assessments
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Event Detail Modal */}
-            {showEventModal && (
-                <div className="fixed inset-0 bg-charcoal/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl">
-                        <div className="p-6 border-b border-charcoal/10 flex justify-between items-center">
-                            <div>
-                                <span className={`text-[10px] font-bold uppercase text-${showEventModal.color}`}>{showEventModal.type}</span>
-                                <h3 className="font-playfair text-xl text-charcoal">{showEventModal.title}</h3>
-                                <p className="text-xs text-charcoal/40 mt-1">{showEventModal.date}</p>
-                            </div>
-                            <button
-                                onClick={() => setShowEventModal(null)}
-                                className="p-2 hover:bg-charcoal/5 rounded-xl transition-colors"
+            {/* Recent Activity */}
+            <div className="glass-card p-6 bg-white/40">
+                <h3 className="font-playfair text-xl text-charcoal dark:text-white mb-4">Recent Study Sessions</h3>
+                {sessions.length === 0 ? (
+                    <p className="text-sm text-charcoal/60 dark:text-white/60 text-center py-8">
+                        No study sessions yet. Start studying to see your activity here.
+                    </p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {sessions.slice(0, 6).map((session) => (
+                            <div
+                                key={session.id}
+                                className="p-4 rounded-xl bg-charcoal/5 dark:bg-white/5"
                             >
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        <div className="p-6">
-                            <p className="text-sm text-charcoal/70 leading-relaxed">
-                                {showEventModal.type === "Hackathon"
-                                    ? "Join fellow students in a 48-hour design marathon. Work with industry mentors and build innovative solutions for real-world problems."
-                                    : "Learn from our distinguished alumni about the latest developments in AI and get career guidance for breaking into the tech industry."
-                                }
-                            </p>
-
-                            <div className="mt-4 p-4 bg-charcoal/5 rounded-xl">
-                                <div className="flex items-center justify-between text-xs">
-                                    <span className="text-charcoal/60">Participants</span>
-                                    <span className="font-bold text-charcoal">42 registered</span>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className={`w-3 h-3 rounded-full ${SUBJECT_COLORS[session.subjectId]}`} />
+                                    <span className="text-sm font-medium">{SUBJECT_LABELS[session.subjectId]}</span>
                                 </div>
+                                <p className="text-2xl font-bold text-charcoal dark:text-white">
+                                    {session.durationMinutes} min
+                                </p>
+                                <p className="text-xs text-charcoal/40 dark:text-white/40">
+                                    {formatDistanceToNow(new Date(session.startedAt), { addSuffix: true })}
+                                </p>
                             </div>
-                        </div>
-
-                        <div className="p-6 border-t border-charcoal/10 flex gap-3">
-                            <button
-                                onClick={() => setShowEventModal(null)}
-                                className="flex-1 py-3 rounded-full text-sm font-medium text-charcoal/60 hover:bg-charcoal/5 transition-all"
-                            >
-                                Close
-                            </button>
-                            <button
-                                onClick={() => {
-                                    handleRegister(showEventModal.id);
-                                    setShowEventModal(null);
-                                }}
-                                className="flex-1 gold-button"
-                            >
-                                {registeredEvents.includes(showEventModal.id) ? "Cancel Registration" : "Register Now"}
-                            </button>
-                        </div>
+                        ))}
                     </div>
-                </div>
-            )}
+                )}
+            </div>
+
+            {/* Add Assessment Modal */}
+            <Modal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                title="Add Assessment"
+                size="md"
+            >
+                <AssessmentForm
+                    onSubmit={handleAddAssessment}
+                    onCancel={() => setShowAddModal(false)}
+                    isLoading={isSubmitting}
+                />
+            </Modal>
+
+            {/* Edit Assessment Modal */}
+            <Modal
+                isOpen={!!editingAssessment}
+                onClose={() => setEditingAssessment(null)}
+                title="Edit Assessment"
+                size="md"
+            >
+                {editingAssessment && (
+                    <AssessmentForm
+                        initialData={editingAssessment}
+                        onSubmit={handleEditAssessment}
+                        onCancel={() => setEditingAssessment(null)}
+                        isLoading={isSubmitting}
+                    />
+                )}
+            </Modal>
         </DashboardLayout>
     );
 }
 
+function StatCard({ icon, label, value, subtext }: { icon: React.ReactNode; label: string; value: string; subtext: string }) {
+    return (
+        <div className="glass-card p-4 bg-white/40">
+            <div className="flex items-center gap-3 mb-2">
+                {icon}
+                <span className="text-xs font-bold text-charcoal/60 dark:text-white/60 uppercase tracking-wider">{label}</span>
+            </div>
+            <p className="text-2xl font-bold text-charcoal dark:text-white">{value}</p>
+            <p className="text-xs text-charcoal/40 dark:text-white/40">{subtext}</p>
+        </div>
+    );
+}
+
 function AssessmentItem({
-    title,
-    dueDate,
-    status,
-    progress
+    assessment,
+    onEdit,
+    onDelete,
+    onStatusChange
 }: {
-    title: string;
-    dueDate: string;
-    status: "pending" | "in-progress" | "not-started" | "completed";
-    progress: number;
+    assessment: Assessment;
+    onEdit: () => void;
+    onDelete: () => void;
+    onStatusChange: (status: "not-started" | "in-progress" | "completed") => void;
 }) {
+    const dueDate = new Date(assessment.dueDate);
+    const isOverdue = isPast(dueDate) && !isToday(dueDate) && assessment.status !== "completed";
+    const isDueToday = isToday(dueDate);
+
     const statusColors = {
-        "pending": "bg-gold/10 text-gold",
-        "in-progress": "bg-sage/10 text-sage",
-        "not-started": "bg-charcoal/5 text-charcoal/40",
-        "completed": "bg-green-50 text-green-600"
+        "not-started": "bg-charcoal/10 text-charcoal/60",
+        "in-progress": "bg-sage/20 text-sage",
+        "completed": "bg-green-100 text-green-600"
     };
 
-    const statusLabels = {
-        "pending": "Due Soon",
-        "in-progress": "In Progress",
-        "not-started": "Not Started",
-        "completed": "Completed"
+    const priorityColors = {
+        low: "border-l-gray-400",
+        medium: "border-l-gold",
+        high: "border-l-red-500"
     };
 
     return (
-        <div className="p-4 bg-white/60 rounded-xl border border-charcoal/5 hover:border-gold/20 transition-all">
-            <div className="flex justify-between items-start mb-2">
-                <h4 className="text-sm font-medium text-charcoal">{title}</h4>
-                <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColors[status]}`}>
-                    {statusLabels[status]}
-                </span>
-            </div>
-            <div className="flex items-center gap-3">
-                <div className="flex-1 h-1.5 bg-charcoal/5 rounded-full overflow-hidden">
-                    <div
-                        className="h-full bg-sage rounded-full transition-all duration-500"
-                        style={{ width: `${progress}%` }}
-                    />
+        <div className={`p-4 rounded-xl bg-white/60 dark:bg-white/5 border-l-4 ${priorityColors[assessment.priority]} ${isOverdue ? "ring-2 ring-red-200" : ""}`}>
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-medium text-charcoal dark:text-white truncate">
+                            {assessment.title}
+                        </h4>
+                        <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${statusColors[assessment.status]}`}>
+                            {assessment.status.replace("-", " ")}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-charcoal/60 dark:text-white/60">
+                        <span className="flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${SUBJECT_COLORS[assessment.subjectId]}`} />
+                            {SUBJECT_LABELS[assessment.subjectId]}
+                        </span>
+                        <span className={`flex items-center gap-1 ${isOverdue ? "text-red-500" : isDueToday ? "text-gold" : ""}`}>
+                            <Calendar size={12} />
+                            {isOverdue ? "Overdue" : isDueToday ? "Due Today" : format(dueDate, "MMM d")}
+                        </span>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="mt-2">
+                        <div className="h-1.5 bg-charcoal/10 dark:bg-white/10 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-sage rounded-full transition-all"
+                                style={{ width: `${assessment.progress}%` }}
+                            />
+                        </div>
+                    </div>
                 </div>
-                <span className="text-[10px] text-charcoal/40">{dueDate}</span>
+                <div className="flex items-center gap-1">
+                    {assessment.status !== "completed" && (
+                        <button
+                            onClick={() => onStatusChange("completed")}
+                            className="p-2 rounded-lg hover:bg-green-100 text-charcoal/40 hover:text-green-600 transition-colors"
+                            title="Mark complete"
+                        >
+                            <CheckCircle size={16} />
+                        </button>
+                    )}
+                    <button
+                        onClick={onEdit}
+                        className="p-2 rounded-lg hover:bg-charcoal/5 text-charcoal/40 hover:text-charcoal transition-colors"
+                        title="Edit"
+                    >
+                        <Edit2 size={16} />
+                    </button>
+                    <button
+                        onClick={onDelete}
+                        className="p-2 rounded-lg hover:bg-red-50 text-charcoal/40 hover:text-red-500 transition-colors"
+                        title="Delete"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                </div>
             </div>
         </div>
     );

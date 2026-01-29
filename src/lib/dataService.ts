@@ -11,7 +11,8 @@ import {
     deleteDoc,
     updateDoc,
     serverTimestamp,
-    type Timestamp
+    onSnapshot,
+    type Unsubscribe
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebaseClient";
 import type { StudySession, DrillQuestion, Flashcard, SubjectKey } from "../types";
@@ -21,12 +22,10 @@ const isFirestoreAvailable = () => {
     return isFirebaseConfigured() && db !== null;
 };
 
-// Study Sessions
+// ==================== STUDY SESSIONS ====================
+
 export async function saveStudySession(userId: string, session: StudySession): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        console.warn("Firestore not available. Session not saved.");
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const sessionRef = doc(db!, "users", userId, "sessions", session.id);
     await setDoc(sessionRef, {
@@ -36,9 +35,7 @@ export async function saveStudySession(userId: string, session: StudySession): P
 }
 
 export async function getStudySessions(userId: string, limitCount: number = 50): Promise<StudySession[]> {
-    if (!isFirestoreAvailable()) {
-        return [];
-    }
+    if (!isFirestoreAvailable()) return [];
 
     const sessionsRef = collection(db!, "users", userId, "sessions");
     const q = query(sessionsRef, orderBy("startedAt", "desc"), limit(limitCount));
@@ -47,12 +44,10 @@ export async function getStudySessions(userId: string, limitCount: number = 50):
     return snapshot.docs.map(doc => doc.data() as StudySession);
 }
 
-// Flashcards
+// ==================== FLASHCARDS ====================
+
 export async function saveFlashcard(userId: string, flashcard: Flashcard): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        console.warn("Firestore not available. Flashcard not saved.");
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const flashcardRef = doc(db!, "users", userId, "flashcards", flashcard.id);
     await setDoc(flashcardRef, {
@@ -62,9 +57,7 @@ export async function saveFlashcard(userId: string, flashcard: Flashcard): Promi
 }
 
 export async function getFlashcards(userId: string, subjectId?: SubjectKey): Promise<Flashcard[]> {
-    if (!isFirestoreAvailable()) {
-        return [];
-    }
+    if (!isFirestoreAvailable()) return [];
 
     const flashcardsRef = collection(db!, "users", userId, "flashcards");
     let q = query(flashcardsRef, orderBy("dueAt", "asc"));
@@ -78,9 +71,7 @@ export async function getFlashcards(userId: string, subjectId?: SubjectKey): Pro
 }
 
 export async function updateFlashcard(userId: string, flashcardId: string, updates: Partial<Flashcard>): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const flashcardRef = doc(db!, "users", userId, "flashcards", flashcardId);
     await updateDoc(flashcardRef, {
@@ -90,20 +81,23 @@ export async function updateFlashcard(userId: string, flashcardId: string, updat
 }
 
 export async function deleteFlashcard(userId: string, flashcardId: string): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const flashcardRef = doc(db!, "users", userId, "flashcards", flashcardId);
     await deleteDoc(flashcardRef);
 }
 
-// Quiz Questions
+export async function saveFlashcardsBatch(userId: string, flashcards: Flashcard[]): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const promises = flashcards.map(flashcard => saveFlashcard(userId, flashcard));
+    await Promise.all(promises);
+}
+
+// ==================== QUIZ QUESTIONS ====================
+
 export async function saveQuizQuestion(userId: string, question: DrillQuestion): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        console.warn("Firestore not available. Question not saved.");
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const questionRef = doc(db!, "users", userId, "questions", question.id);
     await setDoc(questionRef, {
@@ -113,9 +107,7 @@ export async function saveQuizQuestion(userId: string, question: DrillQuestion):
 }
 
 export async function getQuizQuestions(userId: string, subjectId?: SubjectKey): Promise<DrillQuestion[]> {
-    if (!isFirestoreAvailable()) {
-        return [];
-    }
+    if (!isFirestoreAvailable()) return [];
 
     const questionsRef = collection(db!, "users", userId, "questions");
     let q = query(questionsRef, orderBy("createdAt", "desc"), limit(100));
@@ -128,23 +120,174 @@ export async function getQuizQuestions(userId: string, subjectId?: SubjectKey): 
     return snapshot.docs.map(doc => doc.data() as DrillQuestion);
 }
 
-// User Profile
+export async function saveQuizQuestionsBatch(userId: string, questions: DrillQuestion[]): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const promises = questions.map(question => saveQuizQuestion(userId, question));
+    await Promise.all(promises);
+}
+
+// ==================== ASSESSMENTS / TASKS ====================
+
+export interface Assessment {
+    id: string;
+    title: string;
+    description?: string;
+    subjectId: SubjectKey;
+    dueDate: string;
+    status: "not-started" | "in-progress" | "completed";
+    progress: number;
+    priority: "low" | "medium" | "high";
+    createdAt?: any;
+    updatedAt?: any;
+}
+
+export async function saveAssessment(userId: string, assessment: Assessment): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const assessmentRef = doc(db!, "users", userId, "assessments", assessment.id);
+    await setDoc(assessmentRef, {
+        ...assessment,
+        updatedAt: serverTimestamp(),
+        createdAt: assessment.createdAt || serverTimestamp()
+    });
+}
+
+export async function getAssessments(userId: string): Promise<Assessment[]> {
+    if (!isFirestoreAvailable()) return [];
+
+    const assessmentsRef = collection(db!, "users", userId, "assessments");
+    const q = query(assessmentsRef, orderBy("dueDate", "asc"));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment));
+}
+
+export async function updateAssessment(userId: string, assessmentId: string, updates: Partial<Assessment>): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const assessmentRef = doc(db!, "users", userId, "assessments", assessmentId);
+    await updateDoc(assessmentRef, {
+        ...updates,
+        updatedAt: serverTimestamp()
+    });
+}
+
+export async function deleteAssessment(userId: string, assessmentId: string): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const assessmentRef = doc(db!, "users", userId, "assessments", assessmentId);
+    await deleteDoc(assessmentRef);
+}
+
+// ==================== ATTENDANCE ====================
+
+export interface AttendanceRecord {
+    id: string;
+    date: string;
+    subjectId: SubjectKey;
+    status: "present" | "absent" | "late";
+    notes?: string;
+    createdAt?: any;
+}
+
+export async function saveAttendance(userId: string, record: AttendanceRecord): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const attendanceRef = doc(db!, "users", userId, "attendance", record.id);
+    await setDoc(attendanceRef, {
+        ...record,
+        createdAt: serverTimestamp()
+    });
+}
+
+export async function getAttendance(userId: string, days: number = 30): Promise<AttendanceRecord[]> {
+    if (!isFirestoreAvailable()) return [];
+
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const attendanceRef = collection(db!, "users", userId, "attendance");
+    const q = query(attendanceRef, orderBy("date", "desc"), limit(100));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+}
+
+export async function deleteAttendance(userId: string, recordId: string): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const attendanceRef = doc(db!, "users", userId, "attendance", recordId);
+    await deleteDoc(attendanceRef);
+}
+
+// ==================== CALENDAR EVENTS ====================
+
+export interface CalendarEvent {
+    id: string;
+    title: string;
+    description?: string;
+    date: string;
+    time?: string;
+    type: "exam" | "assignment" | "event" | "reminder";
+    subjectId?: SubjectKey;
+    color: string;
+    reminder?: boolean;
+    createdAt?: any;
+}
+
+export async function saveCalendarEvent(userId: string, event: CalendarEvent): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const eventRef = doc(db!, "users", userId, "events", event.id);
+    await setDoc(eventRef, {
+        ...event,
+        createdAt: serverTimestamp()
+    });
+}
+
+export async function getCalendarEvents(userId: string): Promise<CalendarEvent[]> {
+    if (!isFirestoreAvailable()) return [];
+
+    const eventsRef = collection(db!, "users", userId, "events");
+    const q = query(eventsRef, orderBy("date", "asc"));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CalendarEvent));
+}
+
+export async function updateCalendarEvent(userId: string, eventId: string, updates: Partial<CalendarEvent>): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const eventRef = doc(db!, "users", userId, "events", eventId);
+    await updateDoc(eventRef, updates);
+}
+
+export async function deleteCalendarEvent(userId: string, eventId: string): Promise<void> {
+    if (!isFirestoreAvailable()) return;
+
+    const eventRef = doc(db!, "users", userId, "events", eventId);
+    await deleteDoc(eventRef);
+}
+
+// ==================== USER PROFILE ====================
+
 export interface UserProfile {
     displayName: string;
     email: string;
-    createdAt: string;
-    lastActive: string;
+    createdAt?: any;
+    lastActive?: any;
+    subjects: SubjectKey[];
     preferences: {
         notifications: boolean;
         emailNotifications: boolean;
         theme: "light" | "dark" | "system";
+        reminderTime: number; // hours before due date
     };
 }
 
 export async function saveUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        return;
-    }
+    if (!isFirestoreAvailable()) return;
 
     const profileRef = doc(db!, "users", userId);
     await setDoc(profileRef, {
@@ -154,48 +297,51 @@ export async function saveUserProfile(userId: string, profile: Partial<UserProfi
 }
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-    if (!isFirestoreAvailable()) {
-        return null;
-    }
+    if (!isFirestoreAvailable()) return null;
 
     const profileRef = doc(db!, "users", userId);
     const snapshot = await getDoc(profileRef);
 
-    if (!snapshot.exists()) {
-        return null;
-    }
-
+    if (!snapshot.exists()) return null;
     return snapshot.data() as UserProfile;
 }
 
-// Batch save flashcards
-export async function saveFlashcardsBatch(userId: string, flashcards: Flashcard[]): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        console.warn("Firestore not available. Flashcards not saved.");
-        return;
-    }
+// ==================== REAL-TIME LISTENERS ====================
 
-    const promises = flashcards.map(flashcard => saveFlashcard(userId, flashcard));
-    await Promise.all(promises);
+export function subscribeToAssessments(userId: string, callback: (assessments: Assessment[]) => void): Unsubscribe {
+    if (!isFirestoreAvailable()) return () => {};
+
+    const assessmentsRef = collection(db!, "users", userId, "assessments");
+    const q = query(assessmentsRef, orderBy("dueDate", "asc"));
+
+    return onSnapshot(q, (snapshot) => {
+        const assessments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Assessment));
+        callback(assessments);
+    });
 }
 
-// Batch save quiz questions
-export async function saveQuizQuestionsBatch(userId: string, questions: DrillQuestion[]): Promise<void> {
-    if (!isFirestoreAvailable()) {
-        console.warn("Firestore not available. Questions not saved.");
-        return;
-    }
+export function subscribeToCalendarEvents(userId: string, callback: (events: CalendarEvent[]) => void): Unsubscribe {
+    if (!isFirestoreAvailable()) return () => {};
 
-    const promises = questions.map(question => saveQuizQuestion(userId, question));
-    await Promise.all(promises);
+    const eventsRef = collection(db!, "users", userId, "events");
+    const q = query(eventsRef, orderBy("date", "asc"));
+
+    return onSnapshot(q, (snapshot) => {
+        const events = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CalendarEvent));
+        callback(events);
+    });
 }
 
-// Get statistics
+// ==================== STATISTICS ====================
+
 export interface StudyStats {
     totalSessions: number;
     totalMinutes: number;
     totalFlashcards: number;
     totalQuestions: number;
+    completedAssessments: number;
+    pendingAssessments: number;
+    attendanceRate: number;
     subjectBreakdown: Record<SubjectKey, number>;
 }
 
@@ -206,14 +352,19 @@ export async function getStudyStats(userId: string): Promise<StudyStats> {
             totalMinutes: 0,
             totalFlashcards: 0,
             totalQuestions: 0,
+            completedAssessments: 0,
+            pendingAssessments: 0,
+            attendanceRate: 0,
             subjectBreakdown: {} as Record<SubjectKey, number>
         };
     }
 
-    const [sessions, flashcards, questions] = await Promise.all([
+    const [sessions, flashcards, questions, assessments, attendance] = await Promise.all([
         getStudySessions(userId),
         getFlashcards(userId),
-        getQuizQuestions(userId)
+        getQuizQuestions(userId),
+        getAssessments(userId),
+        getAttendance(userId, 30)
     ]);
 
     const totalMinutes = sessions.reduce((sum, s) => sum + s.durationMinutes, 0);
@@ -223,11 +374,20 @@ export async function getStudyStats(userId: string): Promise<StudyStats> {
         subjectBreakdown[session.subjectId] = (subjectBreakdown[session.subjectId] || 0) + session.durationMinutes;
     });
 
+    const completedAssessments = assessments.filter(a => a.status === "completed").length;
+    const pendingAssessments = assessments.filter(a => a.status !== "completed").length;
+
+    const presentDays = attendance.filter(a => a.status === "present").length;
+    const attendanceRate = attendance.length > 0 ? (presentDays / attendance.length) * 100 : 0;
+
     return {
         totalSessions: sessions.length,
         totalMinutes,
         totalFlashcards: flashcards.length,
         totalQuestions: questions.length,
+        completedAssessments,
+        pendingAssessments,
+        attendanceRate,
         subjectBreakdown
     };
 }
